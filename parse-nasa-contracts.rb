@@ -78,7 +78,7 @@ total_woman_owned = []
 total_hbcus = []
 total_value = total_small_businesses_value = total_educational_institutions_value = total_state_universities_value = total_minority_owned_value = total_woman_owned_value = total_hbcus_value = total_grants_value = 0
 
-fy_range = (2005..2014).to_a
+fy_range = (2005..2019).to_a
 
 fy_range.each do |year|
 
@@ -131,18 +131,32 @@ fy_range.each do |year|
 
         res.body.split(/\n/).each do |line|
           count = count + 1
-          # First time through record data headers
+          # First time through write data headers, adding a column for state
           if count == 7 && st == states[0][0]
-            f.write "State\t#{line}\n"
+            f.write "State\tDistrict\t#{line}\n"
           end
 
+          # Once past the summary data begin saving each line of information to the
+          # collated file.
           if count > 7
-            # Once past the summary data begin saving each line of information to the
-            # collated file.
-            f.write "#{st}\t#{line}\n"
 
-            # Additional processing
             raw = line.split("\t")
+
+            # Grab congressional district, making sure to confirm
+            # that the provided information is actually a district number
+            if ["AK","WY","MT","ND","SD","VT","DE"].include?(st)
+              district = "#{st}-00"
+            else
+              district_number = raw[3].slice(-4,2)
+              if district_number.to_i == 0
+                district = ""
+              else
+                district = "#{st}-#{district_number}"
+              end
+            end
+
+            # Raw data dump
+            f.write "#{st}\t#{district}\t#{line}\n"
 
             #Track sum of obligations
             value = process_amount(raw[8])
@@ -157,57 +171,64 @@ fy_range.each do |year|
               total_contractors << raw[0]
             end
 
-            #Organize types of contracts
+            # Is this a research grant?
             if raw[7].include?('Grant For Research')
               grants << raw[0] if not grants.include?(raw[0])
               grant_value += value
               total_grants_value += value
             end
-            
-            if raw[6].include?('Small Business') && !raw[6].include?('Other Than Small Business')
+
+            # Look in multiple fields for contract recipient category
+            contract_type = raw[6] + ' ' + raw[7]
+
+            # Record various types of contract recipients, note that total recipient counts are unique per year and
+            # unique for the time span provided...but not unique year-to-year. There will be duplicates in each year's
+            # count due to the fact that contracts are paid out over mulitple years.
+
+            if (contract_type.include?('Small Business') || contract_type.include?('Small Disadvantaged Business')) && !contract_type.include?('Other Than Small Business')
               small_businesses << raw[0] if not small_businesses.include?(raw[0])
               total_small_businesses << raw[0] if not total_small_businesses.include?(raw[0])
               small_business_value += value
               total_small_businesses_value += value
             end
 
-          
-            if raw[6].include?('Woman Owned Small Business')
+            if (contract_type.include?('Woman Owned') || contract_type.include?('Women Owned'))
               woman_owned << raw[0] if not woman_owned.include?(raw[0])
               total_woman_owned << raw[0] if not total_woman_owned.include?(raw[0])
               woman_owned_value += value
               total_woman_owned_value += value
             end
           
-            if raw[6].include?('Minority Owned')
+            if contract_type.include?('Minority Owned')
               minority_owned << raw[0] if not minority_owned.include?(raw[0])
               total_minority_owned << raw[0] if not total_minority_owned.include?(raw[0])
               minority_owned_value += value
               total_minority_owned_value += value
             end
 
-            if raw[6].include?('Educational') && (raw[6].include?('University') || raw[6].include?('State'))
+            if contract_type.include?('Educational')
               educational_institutions << raw[0] if not educational_institutions.include?(raw[0])
               total_educational_institutions << raw[0] if not total_educational_institutions.include?(raw[0])
               educational_institution_value += value
               total_educational_institutions_value += value
             end
 
-            if raw[6].include?('Educational') && raw[6].include?('State')
+            # Attempt to determine if it is a public university, accounting for poor record-keeping and categorization particular prior to FY2009
+            if (contract_type.include?('Educational') && (contract_type.include?('State') || raw[0].include?("UNIVERSITY OF #{state.upcase}") || raw[0].include?("#{state.upcase} STATE") || raw[0].include?("UNIV #{state.upcase}")))
               state_universities << raw[0] if not state_universities.include?(raw[0])
               total_state_universities << raw[0] if not total_state_universities.include?(raw[0])
               state_university_value += value
               total_state_universities_value += value
             end
 
-            if raw[6].include?('Educational') && raw[6].include?('Historically Black')
+            if contract_type.include?('Educational') && contract_type.include?('Historically Black')
               hbcus << raw[0] if not hbcus.include?(raw[0])
               total_hbcus << raw[0] if not total_hbcus.include?(raw[0])
               hbcu_value += value
               total_hbcus_value += value
             end
 
-            if raw[6].include?('Nonprofit Organization') && !(raw[6].include?('University') || raw[6].include?('State'))
+            if contract_type.include?('Nonprofit Organization') && !(contract_type.include?('University') || contract_type.include?('State'))
               non_profits << raw[0] if not non_profits.include?(raw[0])
               non_profit_value += value
             end
@@ -215,6 +236,8 @@ fy_range.each do |year|
           end
         end
       end
+
+      # Prepare summary file for the fiscal year, broken out by state
       summary << [
         st, contractors.uniq.size,
         small_businesses.uniq.size, small_business_value,
@@ -226,6 +249,7 @@ fy_range.each do |year|
         non_profits.uniq.size, non_profit_value,
         grants.uniq.size, grant_value,
         sum]
+
       puts "#{count-7} contract actions with #{sprintf("$%2.0f",sum)} in obligations."
     end
 

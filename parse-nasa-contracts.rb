@@ -78,7 +78,7 @@ total_woman_owned = []
 total_hbcus = []
 total_value = total_small_businesses_value = total_educational_institutions_value = total_state_universities_value = total_minority_owned_value = total_woman_owned_value = total_hbcus_value = total_grants_value = 0
 
-fy_range = (2005..2019).to_a
+fy_range = (2005..2021).to_a
 
 fy_range.each do |year|
 

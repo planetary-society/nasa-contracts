@@ -1,0 +1,2 @@
+Total Recipients	Net Obligations	Small Businesses	Small Business Total Obligations	Woman Owned	Woman Owned Total Obligations	Minority Owned	Minority Owned Total Obligations	Educational Institutions	Educational Institutions Total Obligations	Public Universities	Public Universities Total Obligations	HBCUs	HBCUs Total Obligations	Grant Obligations
+11518	$119877524546	8373	$18848985315	1472	$4620482228	1317	$9106286202	582	$20434459505	342	$6072377453	46	$81157509	$5148209979

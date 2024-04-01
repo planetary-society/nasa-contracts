@@ -102,8 +102,8 @@ fy_range.each do |year|
       'v_database' => fy.gsub(/\s+/, ""),
       'v_code' => '53',
       'v_district' => 'ALL',
-      'v_end_date' => start_date,
-      'v_start_date' => end_date,
+      'v_end_date' => end_date,
+      'v_start_date' => start_date,
       'v_state' => state.upcase,
       'v_state2' =>st,
       'action' => 'Export to Excel')

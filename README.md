@@ -10,7 +10,7 @@ Each year is in the format of ```nasa_contracts_{YYYY}``` where YYYY is the 4-di
 
 ## Data Freshness
 
-The three most recent fiscal years are refreshed on a weekly basis and pushed to this repo. You can confirm using the last modified
+The three most recent fiscal years are refreshed on a weekly basis and pushed to this repo. (You can confirm using the last modified commit dates on the csv files).
 
 ### Output Data Column Descriptions
 

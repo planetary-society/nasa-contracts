@@ -2,7 +2,7 @@
 """
 A Python script to query NASA contract data for specified fiscal years,
 apply custom transformations, and write the returned data (for all states)
-to a single CSV file with "State" and "District" columns prepended.
+to separate CSV files (one per fiscal year) with "State" and "District" columns prepended.
 
 Transformations applied:
     1. Swap the columns for Award Type (index 6) and Contractor Type - Indicators (index 7).
@@ -111,7 +111,6 @@ class TextNormalizer:
         sorted_keys = sorted(self.mapping.keys(), key=len, reverse=True)
         # Build a regex pattern that matches any key.
         # Using negative lookbehind/lookahead ensures we match whole words/phrases.
-        # Note: Adjust the boundaries if your data may include punctuation or non-alphanumeric context.
         pattern_str = r"(?<![A-Za-z0-9])(" + "|".join(map(re.escape, sorted_keys)) + r")(?![A-Za-z0-9])"
         self.pattern = re.compile(pattern_str, re.IGNORECASE)
 
@@ -144,15 +143,14 @@ class TextNormalizer:
             "iii": "III"
         }
         
-        # Add all relevant fiscal years
+        # Add fiscal year abbreviations correctly (using the loop variable `fy`).
         current_year = datetime.datetime.now().year
         for fy in range(2005, current_year + 1):
-            fy_str = str(current_year)[2:]
+            fy_str = str(fy)[2:]
             abbreviation_fixes[f"fy{fy_str}"] = f"FY{fy_str}"
 
         # Replace each abbreviation in the text using a case-insensitive search.
         for wrong, correct in abbreviation_fixes.items():
-            # The \b ensures that we match whole words (or phrases) only.
             pattern = r'\b' + re.escape(wrong) + r'\b'
             sentence_cased = re.sub(pattern, correct, sentence_cased, flags=re.IGNORECASE)
 
@@ -169,10 +167,9 @@ class TextNormalizer:
         Returns:
             The text with all recognized phrases normalized.
         """
-        
+        # Apply sentence casing first
         text = self._sentence_case(text)
         
-        # If no pattern was built (because no CSV file was provided), return text unchanged.
         if not self.pattern:
             return text
 
@@ -180,6 +177,7 @@ class TextNormalizer:
             matched_text = match.group(0)
             return self.mapping.get(matched_text.lower(), matched_text)
 
+        # Replace acronyms/phrases without applying sentence case again.
         return self.pattern.sub(replacement, text)
 
 class NASADataFetcher:
@@ -227,9 +225,10 @@ class NASADataFetcher:
         if len(row) > 0:
             row[0] = row[0].title()
         
-        # Sentence-case the description at index 14 and renormalize any standard acronyms or program names
+        # Normalize the description at index 14 (delegate sentence-casing & acronym fixes to TextNormalizer)
         if len(row) > 14:
-            row[14] = self.normalizer.normalize(row[14])
+            normalized_description = self.normalizer.normalize(row[14])
+            row[14] = normalized_description
 
     def _build_post_data(self, year: int, st_code: str, st_name: str) -> dict:
         """
@@ -273,22 +272,20 @@ class NASADataFetcher:
 
     def fetch_and_save_data(self) -> None:
         """
-        Fetch data for each fiscal year/state combination and write a single CSV file.
+        For each fiscal year in the configuration, fetch data for every state and write to a separate CSV file.
         """
-        fy_part = "_".join(str(y) for y in self.config.fiscal_years)
-        filename = f"{self.config.output_base_filename}_{fy_part}.csv"
-        full_path = os.path.join(self.config.output_dir, filename)
+        for year in self.config.fiscal_years:
+            filename = f"{self.config.output_base_filename}_{year}.csv"
+            full_path = os.path.join(self.config.output_dir, filename)
+            headers_written = False
 
-        headers_written = False
+            try:
+                with open(full_path, mode="w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
 
-        try:
-            with open(full_path, mode="w", newline="", encoding="utf-8") as csvfile:
-                writer = csv.writer(csvfile)
-
-                # Loop through each fiscal year and state combination.
-                for year in self.config.fiscal_years:
+                    # Loop through each state for the given fiscal year.
                     for st_code, st_name in self.config.states:
-                        logging.info("Downloading contract data for %s...", st_name)
+                        logging.info("Downloading contract data for %s in fiscal year %s...", st_name, year)
                         form_data = self._build_post_data(year, st_code, st_name)
                         try:
                             response = requests.post(
@@ -311,7 +308,7 @@ class NASADataFetcher:
                             logging.warning("Unexpected response format for %s.", st_name)
                             continue
 
-                        # Use enumerate to iterate over lines (starting at 1 for clarity)
+                        # Process lines from the response.
                         for row_index, line in enumerate(lines, start=1):
                             # The 7th line is the NASA export header.
                             if row_index == 7:
@@ -331,10 +328,10 @@ class NASADataFetcher:
                                 self._sanitize_row(raw_data)
                                 csv_row = [st_code, district_str] + raw_data
                                 writer.writerow(csv_row)
-                        logging.info("Finished. Found %d contracts", len(lines)-7)
-            logging.info("File written to: %s", full_path)
-        except IOError as err:
-            logging.error("Failed to write CSV file: %s", err)
+                        logging.info("Finished for %s in fiscal year %s. Found %d contracts", st_name, year, len(lines)-7)
+                logging.info("File written to: %s", full_path)
+            except IOError as err:
+                logging.error("Failed to write CSV file %s: %s", full_path, err)
 
 
 def parse_args() -> argparse.Namespace:

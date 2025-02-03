@@ -48,3 +48,11 @@ jobs:
 
           # Run the Python script with the fiscal years and default output directory
           python fetch-contracts.py -fy $FY1 $FY2 $FY3
+
+      - name: Commit updated CSV files
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: 'github-actions[bot]'
+          author_email: 'github-actions[bot]@users.noreply.github.com'
+          message: 'Update NASA contract CSV files'
+          add: 'data/*.csv'

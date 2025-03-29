@@ -69,6 +69,7 @@ def main():
     parser.add_argument('output_csv', help='Path to the output CSV file for filtered rows')
     parser.add_argument('--start_date', help="Start date (MM/DD/YYYY) for Completion Date filter. Defaults to 7 days ago.", default=None)
     parser.add_argument('--end_date', help="End date (MM/DD/YYYY) for Completion Date filter. Defaults to today.", default=None)
+    parser.add_argument('--diff', help="CSV file containing 'Contract/Mod Number' column. Rows with Award IDs in this file will be excluded.", default=None)
     args = parser.parse_args()
     
     # Define filter criteria for description
@@ -113,10 +114,30 @@ def main():
     display_rows.append(columns_to_display)
     csv_rows.append(columns_to_display)
     
+    # Process diff file if provided: extract Award IDs from its "Contract/Mod Number" column.
+    excluded_award_ids = set()
+    if args.diff:
+        try:
+            with open(args.diff, newline='', encoding='utf-8') as diff_file:
+                diff_reader = csv.DictReader(diff_file)
+                if "Contract/Mod Number" not in diff_reader.fieldnames:
+                    print("Column 'Contract/Mod Number' not found in diff CSV file.", file=sys.stderr)
+                    sys.exit(1)
+                for diff_row in diff_reader:
+                    diff_contract_mod = diff_row.get("Contract/Mod Number", "")
+                    diff_award_id, _ = parse_mod_number(diff_contract_mod)
+                    excluded_award_ids.add(diff_award_id)
+        except FileNotFoundError:
+            print(f"Diff file '{args.diff}' not found.", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"An error occurred while processing the diff file: {e}", file=sys.stderr)
+            sys.exit(1)
+    
     # Dictionary to hold the most recent row per Award ID.
     # Key: Award ID, Value: tuple(modification number, row dict)
     latest_rows = {}
-    
+    print(len(excluded_award_ids), "Award IDs will be excluded based on the diff file.")
     try:
         with open(args.csvfile, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -129,6 +150,10 @@ def main():
             for row in reader:
                 contract_mod = row.get("Contract/Mod Number", "")
                 award_id, mod_num = parse_mod_number(contract_mod)
+                
+                # If the award ID is in the diff file, skip this row.
+                if award_id in excluded_award_ids:
+                    continue
                 
                 # Keep only the row with the highest modification number per Award ID.
                 if award_id in latest_rows:
@@ -164,7 +189,7 @@ def main():
         # Check if the most recent row meets either filtering condition:
         # - The description contains one of the search phrases, OR
         # - The completion date is within the date range.
-        if any(re.search(r'\b' + re.escape(phrase) + r'\b', description_val, re.IGNORECASE) for phrase in search_phrases) or in_date_range:
+        if any(re.search(r'\b' + re.escape(phrase) + r'\b', description_val, re.IGNORECASE) for phrase in search_phrases):
             # Extract only the selected columns
             row_values = [row.get(col, "") for col in columns_to_display]
             

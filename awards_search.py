@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
 import requests
 import csv
+import argparse
+from titlecase import titlecase
 
 def get_award_details(award_ids, award_type_codes):
     """
@@ -61,7 +64,7 @@ def extract_award_ids_from_csv(csv_filename):
     with open(csv_filename, mode='r', newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            contract_mod = row.get("Contract/Mod Number", "")
+            contract_mod = row.get("Contract/Mod Number", "") or row.get("Award ID", "")
             if contract_mod:
                 award_id = contract_mod.split()[0]
                 award_ids.append(award_id)
@@ -70,7 +73,7 @@ def extract_award_ids_from_csv(csv_filename):
 
 def update_csv_with_award_details(input_csv, output_csv, award_details_map):
     """
-    Reads the input CSV file, appends additional columns (Award ID, Award Amount, Total Outlays)
+    Reads the input CSV file, appends additional columns (Award ID, Start Date, End Date, Award Amount, Total Outlays)
     based on the Award ID extracted from the 'Contract/Mod Number' column, and writes all rows
     to a new output CSV file. If no award details are found for a given row, the extra columns
     remain empty.
@@ -80,12 +83,12 @@ def update_csv_with_award_details(input_csv, output_csv, award_details_map):
         
         reader = csv.DictReader(infile)
         # Append new headers to the existing ones.
-        fieldnames = reader.fieldnames + ["Award ID", "Start Date", "End Date", "Award Amount", "Total Outlays"]
+        fieldnames = reader.fieldnames + ["Award ID", "Start Date", "End Date", "Award Amount", "Total Outlays", "USA Spending Description"]
         writer = csv.DictWriter(outfile, fieldnames=fieldnames)
         writer.writeheader()
         
         for row in reader:
-            contract_mod = row.get("Contract/Mod Number", "")
+            contract_mod = row.get("Contract/Mod Number", "") or row.get("Award ID", "")
             if contract_mod:
                 extracted_award_id = contract_mod.split()[0]
             else:
@@ -94,17 +97,23 @@ def update_csv_with_award_details(input_csv, output_csv, award_details_map):
             # Lookup the award details using the extracted Award ID
             details = award_details_map.get(extracted_award_id, {})
             row["Award ID"] = extracted_award_id
-            row["Start Date"] = details.get("Start Date","")
-            row["End Date"] = details.get("End Date","")
+            row["Start Date"] = details.get("Start Date", "")
+            row["End Date"] = details.get("End Date", "")
             row["Award Amount"] = details.get("Award Amount", "")
             row["Total Outlays"] = details.get("Total Outlays", "")
+            row["USA Spending Description"] = details.get("Description", "").capitalize()
             writer.writerow(row)
 
 def main():
-    # Define input and output CSV file paths.
-    input_csv = "cancelled_contracts.csv"        # Your input CSV file containing initial data
-    output_csv = "cancelled_contracts_details.csv"      # The output CSV file with additional columns
-    
+    # Parse CLI arguments for input and output CSV file paths.
+    parser = argparse.ArgumentParser(description='Update CSV file with award details from the USASpending API.')
+    parser.add_argument('input_csv', help='Path to the input CSV file')
+    parser.add_argument('output_csv', help='Path to the output CSV file with award details')
+    args = parser.parse_args()
+
+    input_csv = args.input_csv
+    output_csv = args.output_csv
+
     # Extract unique Award IDs from the input CSV file.
     award_ids = extract_award_ids_from_csv(input_csv)
     if not award_ids:

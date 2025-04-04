@@ -1,10 +1,9 @@
-name: Weekly refresh of recent contract data
+name: Daily refresh of recent contract data
 
 on:
-  # Run every Sunday at midnight UTC
+  # Run every day at 6am PT (using 14:00 UTC for PST)
   schedule:
-    - cron: "0 0 * * 0"
-  # Also allow manual triggering
+    - cron: "0 14 * * *"
   workflow_dispatch:
 
 jobs:

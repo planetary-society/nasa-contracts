@@ -73,7 +73,7 @@ def main():
     args = parser.parse_args()
     
     # Define filter criteria for description
-    search_phrases = ["termination", "stop work", "terminated", "terminates"]
+    search_phrases = ["termination", "stop work", "terminated", "terminates","effectuates"]
 
     # Compute default date range (7 days ago to today) if not provided
     today = datetime.today()

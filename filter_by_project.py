@@ -16,8 +16,11 @@ Dependencies:
 import re
 import sys
 from pathlib import Path
-
+from typing import Set, Optional, Tuple
 import pandas as pd
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define the projects and their keyword batches.
 PROJECTS = {
@@ -36,7 +39,7 @@ PROJECTS = {
     "Chandra": ["Chandra"],
     "SAGE-III": ["SAGE-III", "Stratospheric Aerosol and Gas Experiment III", "SAGE III"],
     "DSCOVR": ["DSCOVR", "Deep Space Climate Observatory", "DSCOVR EPIC", "DSCOVR NISTAR"],
-    "Terra": ["Terra", "Terra EOS"],
+    "Terra": ["Terra", "Terra EOS","~Terra Ferma Llc","~A-Terra Llc","~Terra Universal, Inc.","~Terra Research Inc."],
     "Aqua": ["Aqua"],
     "Aura": ["Aura"],
     "OCO-3": ["OCO-3", "Orbiting Carbon Observatory-3", "OCO3"],
@@ -51,9 +54,10 @@ PROJECTS = {
     "Rosalind_Franklin_Rover": [
         "Rosalind Franklin",
         "ExoMars",
+        "~trace gas orbiter"
     ],
     "COSI": ["COSI", "Compton Spectrometer and Imager"],
-    "LISA": ["LISA", "Laser Interferometer Space Antenna"],
+    "LISA": ["LISA", "Laser Interferometer Space Antenna","LISA-T"],
     "ULTRASAT": [
         "ULTRASAT",
         "Ultraviolet Transient Astronomy Satellite",
@@ -81,7 +85,8 @@ PROJECTS = {
     "EUVST": ["EUVST", "EUV Solar Telescope"],
     "HelioSwarm": ["HelioSwarm", "Helio Swarm"],
     "HERMES": ["HERMES", "Heliospheric Relay and Monitoring Experiment"],
-    "GDC": ["GDC", "Geospace Dynamics Constellation"]
+    "GDC": ["GDC", "Geospace Dynamics Constellation"],
+    
 }
 
 # Number of rows per chunk. Adjust based on your available memory.
@@ -103,8 +108,8 @@ def build_filter_mask(df_chunk: pd.DataFrame, keywords: list[str]) -> pd.Series:
     positives = [kw for kw in keywords if not kw.startswith("~")]
     negatives = [kw[1:] for kw in keywords if kw.startswith("~")]
 
-    # Create row-wise concatenated string
-    row_strings = df_chunk.astype(str).agg(" ".join, axis=1)
+    # Create row-wise concatenated string. Don't include contractor names since those frequently return false positives.
+    row_strings = df_chunk.drop(columns=['Contractor'], errors='ignore').astype(str).agg(" ".join, axis=1)
 
     # Build positive regex (if any)
     if positives:
@@ -153,6 +158,117 @@ def filter_for_project_and_year(
 
     return pd.concat(filtered_chunks, ignore_index=True)
 
+def parse_mod_number(contract_mod_str: Optional[str]) -> Tuple[str, int]:
+    """
+    Parses a string potentially containing an award ID and a modification identifier.
+
+    Handles formats like:
+        - "AWARD_ID Modification P001"
+        - "AWARD_ID Modification S022"
+        - "AWARD_ID Modification A00002"
+        - "AWARD_ID Modification 215"
+        - "AWARD_ID Modification 0 (Base Record)"
+        - "AWARD_ID" (no modification)
+
+    Args:
+        contract_mod_str: The input string to parse.
+
+    Returns:
+        A tuple containing:
+        - The extracted award ID (string). Returns the original string if no
+            " Modification " part is found. Returns empty string if input is None/empty.
+        - The extracted modification number (int). Returns 0 if no modification
+            part is found, if the modification part doesn't contain digits that can be
+            parsed according to the rules, or if the input is None/empty.
+    """
+    # 1. Handle None or empty input
+    if not contract_mod_str:
+        return "", 0
+
+    # Ensure input is treated as string and strip whitespace
+    contract_mod_str = str(contract_mod_str).strip()
+    if not contract_mod_str: # Check again after potential stripping of whitespace-only string
+        return "", 0
+
+    # 2. Split by " Modification" followed by (space or end of string)
+    # This correctly handles "AWARD_ID Modification", "AWARD_ID Modification ", and "AWARD_ID Modification P001"
+    parts = re.split(r'\s+Modification(?:\s+|$)', contract_mod_str, maxsplit=1, flags=re.IGNORECASE)
+
+    # 3. If no " Modification" part that matches criteria, parts[0] is original string.
+    if len(parts) < 2:
+        # This case implies "Modification" was not found in a way that allows splitting off an award ID.
+        # e.g. input is just "AWARD_ID" or "SomeText"
+        return contract_mod_str, 0
+    
+    award_id = parts[0].strip()
+    mod_part_full = parts[1].strip() # This will be "" if "Modification" was at the end
+
+    # Handle case where the part after "Modification" is empty (already handled by mod_part_full = "" from split)
+    if not mod_part_full:
+        logging.info(f"Input '{contract_mod_str}' resulted in empty mod_part_full. Award ID: '{award_id}'. Mod num: 0.")
+        return award_id, 0
+
+    # 5. Attempt to extract modification number (int) from non-empty mod_part_full
+    mod_num = 0
+    mod_num_found = False
+
+    # First, try to match leading digits directly (handles "215", "0 (Base Record)")
+    match_leading_digits = re.match(r'^(\d+)', mod_part_full)
+    if match_leading_digits:
+        mod_str = match_leading_digits.group(1)
+        try:
+            mod_num = int(mod_str)
+            mod_num_found = True
+        except (ValueError, TypeError):
+                # Should be unlikely if regex matched \d+, but handle anyway
+                logging.warning(f"Failed converting leading digits '{mod_str}' from '{mod_part_full}' in '{contract_mod_str}'.")
+                # Continue to next check
+
+    # If leading digits weren't found or failed conversion,
+    # try stripping leading non-digits (handles "P001", "S022", "A00002")
+    if not mod_num_found:
+        mod_part_numeric = re.sub(r'^\D+', '', mod_part_full) # Remove leading non-digits
+        if mod_part_numeric: # Check if anything numeric remains
+            try:
+                mod_num = int(mod_part_numeric)
+                mod_num_found = True
+            except (ValueError, TypeError):
+                logging.warning(f"Failed converting digits '{mod_part_numeric}' (after stripping non-digits) from '{mod_part_full}' in '{contract_mod_str}'.")
+                # Mod num remains 0
+
+    # If no number was found by either method, log a warning
+    if not mod_num_found:
+            logging.warning(f"Could not extract numeric modification from '{mod_part_full}' in '{contract_mod_str}'. Defaulting mod to 0.")
+            # mod_num is already 0
+
+    # 6. Return the extracted award ID and modification number
+    return award_id, mod_num
+
+def filter_latest_modifications(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter DataFrame to only include rows with the highest modification number
+    for each unique award ID.
+    
+    Args:
+        df: DataFrame containing contract data with "Contract/Mod Number" column
+        
+    Returns:
+        DataFrame with only the latest modification for each award ID
+    """
+    if df.empty or "Contract/Mod Number" not in df.columns:
+        return df
+    
+    # Parse award IDs and modification numbers
+    parsed_data = df["Contract/Mod Number"].apply(parse_mod_number)
+    df_with_parsed = df.copy()
+    df_with_parsed["Award_ID"] = [x[0] for x in parsed_data]
+    df_with_parsed["Mod_Number"] = [x[1] for x in parsed_data]
+    
+    # Group by Award_ID and keep only rows with maximum Mod_Number
+    idx = df_with_parsed.groupby("Award_ID")["Mod_Number"].idxmax()
+    result = df_with_parsed.loc[idx].drop(columns=["Award_ID", "Mod_Number"])
+    
+    return result
 
 def main():
     data_dir = Path("data")
@@ -174,10 +290,14 @@ def main():
             continue
 
         combined = pd.concat(all_frames, ignore_index=True)
+        
+        # Filter to only include latest modifications
+        latest_only = filter_latest_modifications(combined)
+        
         years_str = "_".join(str(y) for y in years)
         out_path = out_dir / f"{project_name}_{years_str}.csv"
-        combined.to_csv(out_path, index=False)
-        print(f"Wrote {len(combined)} rows for project '{project_name}' to: {out_path}")
+        latest_only.to_csv(out_path, index=False)
+        print(f"Wrote {len(latest_only)} rows (latest modifications only) for project '{project_name}' to: {out_path}")
 
 
 if __name__ == "__main__":

@@ -29,14 +29,7 @@ PROJECTS = {
     "New Horizons": ["New Horizons","~New Horizons Aeronautics, Llc"],
     "OSIRIS-APEX": ["OSIRIS-APEX", "Apophis Explorer"],
     "Mars Odyssey": ["ODY","Mars Odyssey","Odyssey", "~Odyssey Space Research"],
-    "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy"],
-    "DAVINCI": ["DAVINCI","Deep Atmosphere Venus Investigation of Noble gases, Chemistry, and Imaging"],
-    "EnVision": ["EnVision","vensar","~nustar","~plankton"],
-    "MAVEN": ["MAVEN"],
-    "Euclid": ["Euclid", "~SBIR","~STTR","~Euclid Beamlabs"],
-    "MEx": ["Mars Express"],
-    "Fermi": ["Fermi","~SOLAR wind"],
-    "Chandra": ["Chandra"],
+    "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy","~netbackup","~netback up","~Metgreen Solutions Inc","~software","~maintenance","~consulting services","~renewal"],
     "SAGE-III": ["SAGE-III", "Stratospheric Aerosol and Gas Experiment III", "SAGE III"],
     "DSCOVR": ["DSCOVR", "Deep Space Climate Observatory", "DSCOVR EPIC", "DSCOVR NISTAR"],
     "Terra": ["Terra", "Terra EOS","~Terra Ferma Llc","~A-Terra Llc","~Terra Universal, Inc.","~Terra Research Inc."],
@@ -46,11 +39,11 @@ PROJECTS = {
     "OCO-2": ["OCO-2", "Orbiting Carbon Observatory-2", "OCO2"],
     "GOLD": ["GOLD", "Global-scale Observations of the Limb and Disk"],
     "Hinode": ["Hinode", "Solar-B", "Hinode NASA"],
-    "IBEX": ["IBEX", "Interstellar Boundary Explorer", "IBEX NASA"],
+    "IBEX": ["IBEX", "Interstellar Boundary Explorer", "IBEX NASA","~ibex business"],
     "MMS": ["MMS", "Magnetospheric Multiscale"],
     "THEMIS_ARTEMIS": ["THEMIS", "THEMIS-ARTEMIS"],
     "TIMED": ["TIMED", "Thermosphere Ionosphere Mesosphere Energetics Dynamics"],
-    "VIPER": ["VIPER", "Volatiles Investigating Polar Exploration Rover"],
+    "VIPER": ["VIPER", "Volatiles Investigating Polar Exploration Rover", "~versatile imager platform","~VIPER machine","~3d systems","~vxworks VIPER","~VIPER fabrication services","~Eo14042"],
     "Rosalind_Franklin_Rover": [
         "Rosalind Franklin",
         "ExoMars",
@@ -294,9 +287,19 @@ def main():
         # Filter to only include latest modifications
         latest_only = filter_latest_modifications(combined)
         
+        # Sort by Reverse Year and Award Type
+        latest_only.sort_values(by=["Year", "Award Type"], inplace=True)
+        
+        # Split into two dataframes, one that matches "Grant" in Award Type and one that does not
+        grants_only = latest_only[latest_only["Award Type"].str.contains("Grant", case=False, na=False)]
+        contracts = latest_only[~latest_only["Award Type"].str.contains("Grant", case=False, na=False)]
+        
         years_str = "_".join(str(y) for y in years)
-        out_path = out_dir / f"{project_name}_{years_str}.csv"
-        latest_only.to_csv(out_path, index=False)
+        out_path = out_dir / f"{project_name}_{years_str}"
+        
+        grants_only.to_csv(f"{out_path}_grants.csv", index=False)
+        contracts.to_csv(f"{out_path}_contracts.csv", index=False)
+
         print(f"Wrote {len(latest_only)} rows (latest modifications only) for project '{project_name}' to: {out_path}")
 
 

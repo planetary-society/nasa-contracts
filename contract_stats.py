@@ -190,48 +190,127 @@ def calculate_obligations_by_month(df: pd.DataFrame, fiscal_year: int) -> pd.Dat
     return monthly_obligations[["Month", "Total Obligations", "Running Total"]]
 
 
-def export_obligations_table(obligations_table: pd.DataFrame, fiscal_year: int) -> str:
+def get_awards_data_for_year(df: pd.DataFrame, fiscal_year: int) -> Dict:
     """
-    Export obligations table to CSV file.
-    
-    Args:
-        obligations_table: DataFrame with obligations data
-        fiscal_year: Fiscal year for filename
-        
-    Returns:
-        Filename of exported CSV
-    """
-    filename = f"obligations_by_month_FY{fiscal_year}.csv"
-    obligations_table.to_csv(filename, index=False)
-    return filename
-
-
-def export_awards_table(awards_table: pd.DataFrame, fiscal_year: int) -> str:
-    """
-    Export awards table to CSV file.
-    
-    Args:
-        awards_table: DataFrame with awards data
-        fiscal_year: Fiscal year for filename
-        
-    Returns:
-        Filename of exported CSV
-    """
-    filename = f"new_awards_by_category_FY{fiscal_year}.csv"
-    awards_table.to_csv(filename, index=True)  # Keep index for category names
-    return filename
-
-
-def count_new_awards_by_category(df: pd.DataFrame, fiscal_year: int) -> pd.DataFrame:
-    """
-    Count new awards (Modification 0) by category and month.
+    Get raw awards data for a fiscal year.
     
     Args:
         df: DataFrame with contract data
         fiscal_year: Fiscal year to process
         
     Returns:
-        DataFrame with categories as rows and months as columns
+        Dictionary with monthly counts and values for contracts and grants
+    """
+    # Filter for this fiscal year and Modification 0
+    df_fy = df[
+        (df["Fiscal_Year"] == fiscal_year) & 
+        (df["Contract/Mod Number"].str.contains("Modification 0", case=False, na=False))
+    ].copy()
+    
+    if df_fy.empty:
+        return {}
+    
+    # Extract award categories
+    df_fy["Category"] = df_fy["Award Type"].apply(get_award_category)
+    
+    # Initialize result dictionary
+    result = {}
+    
+    # Process each month
+    for month_idx, month_name in enumerate(FISCAL_MONTHS, 1):
+        month_data = df_fy[df_fy["Fiscal_Month"] == month_idx]
+        
+        # Count and sum by category
+        contracts_data = month_data[month_data["Category"] == "Contracts"]
+        grants_data = month_data[month_data["Category"] == "Grants"]
+        
+        result[month_name] = {
+            "contract_count": len(contracts_data),
+            "contract_value": round(contracts_data["Obligations_Float"].sum(), 2),
+            "grant_count": len(grants_data),
+            "grant_value": round(grants_data["Obligations_Float"].sum(), 2)
+        }
+    
+    return result
+
+
+def create_combined_awards_csv(all_data: Dict, fiscal_years: List[int]) -> str:
+    """
+    Create combined CSV file with awards data for all fiscal years.
+    
+    Args:
+        all_data: Dictionary with data for each fiscal year
+        fiscal_years: List of fiscal years to include
+        
+    Returns:
+        Filename of exported CSV
+    """
+    # Sort fiscal years for consistent ordering
+    fiscal_years = sorted(fiscal_years, reverse=True)
+    
+    # Build rows
+    rows = []
+    for month in FISCAL_MONTHS:
+        row = {"Month": month}
+        for fy in fiscal_years:
+            if fy in all_data and month in all_data[fy]:
+                data = all_data[fy][month]
+                row[f"FY {fy} New Grant Awards"] = data["grant_count"]
+                row[f"FY {fy} Grant Awards Value"] = data["grant_value"]
+                row[f"FY {fy} New Contract Awards"] = data["contract_count"]
+                row[f"FY {fy} Contract Awards Value"] = data["contract_value"]
+            else:
+                row[f"FY {fy} New Grant Awards"] = 0
+                row[f"FY {fy} Grant Awards Value"] = 0.00
+                row[f"FY {fy} New Contract Awards"] = 0
+                row[f"FY {fy} Contract Awards Value"] = 0.00
+        rows.append(row)
+    
+    # Add totals row
+    total_row = {"Month": "Total"}
+    for fy in fiscal_years:
+        grant_count_total = 0
+        grant_value_total = 0.0
+        contract_count_total = 0
+        contract_value_total = 0.0
+        
+        if fy in all_data:
+            for month_data in all_data[fy].values():
+                grant_count_total += month_data["grant_count"]
+                grant_value_total += month_data["grant_value"]
+                contract_count_total += month_data["contract_count"]
+                contract_value_total += month_data["contract_value"]
+        
+        total_row[f"FY {fy} New Grant Awards"] = grant_count_total
+        total_row[f"FY {fy} Grant Awards Value"] = round(grant_value_total, 2)
+        total_row[f"FY {fy} New Contract Awards"] = contract_count_total
+        total_row[f"FY {fy} Contract Awards Value"] = round(contract_value_total, 2)
+    
+    rows.append(total_row)
+    
+    # Create DataFrame and export
+    df_export = pd.DataFrame(rows)
+    
+    # Generate filename
+    min_year = min(fiscal_years)
+    max_year = max(fiscal_years)
+    filename = f"new_awards_{min_year}_to_{max_year}.csv"
+    
+    # Export with proper float formatting (2 decimal places)
+    df_export.to_csv(filename, index=False, float_format='%.2f')
+    return filename
+
+
+def count_new_awards_by_category(df: pd.DataFrame, fiscal_year: int) -> pd.DataFrame:
+    """
+    Count new awards (Modification 0) by category and month, including value totals.
+    
+    Args:
+        df: DataFrame with contract data
+        fiscal_year: Fiscal year to process
+        
+    Returns:
+        DataFrame with categories as rows and months as columns, including counts and values
     """
     # Filter for this fiscal year and Modification 0
     df_fy = df[
@@ -245,31 +324,108 @@ def count_new_awards_by_category(df: pd.DataFrame, fiscal_year: int) -> pd.DataF
     # Extract award categories
     df_fy["Category"] = df_fy["Award Type"].apply(get_award_category)
     
-    # Create pivot table
-    pivot = pd.crosstab(
+    # Create count pivot table
+    count_pivot = pd.crosstab(
         df_fy["Category"],
         df_fy["Fiscal_Month"],
         margins=True,
         margins_name="Total"
     )
     
+    # Create value pivot table (sum of obligations)
+    value_pivot = pd.crosstab(
+        df_fy["Category"],
+        df_fy["Fiscal_Month"],
+        values=df_fy["Obligations_Float"],
+        aggfunc='sum',
+        margins=True,
+        margins_name="Total Value"
+    )
+    
     # Rename columns to month names
     column_mapping = {i: FISCAL_MONTHS[i-1] for i in range(1, 13)}
-    pivot = pivot.rename(columns=column_mapping)
+    count_pivot = count_pivot.rename(columns=column_mapping)
+    value_pivot = value_pivot.rename(columns=column_mapping)
     
     # Ensure all months are present (fill missing with 0)
     for month in FISCAL_MONTHS:
-        if month not in pivot.columns:
-            pivot[month] = 0
+        if month not in count_pivot.columns:
+            count_pivot[month] = 0
+        if month not in value_pivot.columns:
+            value_pivot[month] = 0
     
-    # Reorder columns
-    ordered_cols = [col for col in FISCAL_MONTHS if col in pivot.columns] + ["Total"]
-    pivot = pivot[ordered_cols]
+    # Reorder columns for count pivot
+    ordered_cols = [col for col in FISCAL_MONTHS if col in count_pivot.columns] + ["Total"]
+    count_pivot = count_pivot[ordered_cols]
     
-    return pivot
+    # Reorder columns for value pivot (handle different margin column name)
+    value_ordered_cols = [col for col in FISCAL_MONTHS if col in value_pivot.columns]
+    if "All" in value_pivot.columns:
+        value_ordered_cols.append("All")
+        value_pivot = value_pivot[value_ordered_cols]
+        value_pivot = value_pivot.rename(columns={"All": "Total"})
+    else:
+        value_pivot = value_pivot[value_ordered_cols]
+    
+    # Rename value rows
+    value_pivot.index = [f"{idx} Value" if idx != "Total Value" else idx for idx in value_pivot.index]
+    
+    # Filter to get contract and grant values specifically
+    contract_value_row = value_pivot[value_pivot.index.str.contains("Contracts Value", na=False)].copy()
+    grant_value_row = value_pivot[value_pivot.index.str.contains("Grants Value", na=False)].copy()
+    total_value_row = value_pivot[value_pivot.index == "Total Value"].copy()
+    
+    # Rename for clarity
+    if not contract_value_row.empty:
+        contract_value_row.index = ["Contract Value"]
+    if not grant_value_row.empty:
+        grant_value_row.index = ["Grant Value"]
+    
+    # Calculate Total column if missing (sum all month columns)
+    month_cols = [col for col in value_pivot.columns if col != "Total"]
+    if not contract_value_row.empty:
+        contract_value_row["Total"] = contract_value_row[month_cols].sum(axis=1)
+    if not grant_value_row.empty:
+        grant_value_row["Total"] = grant_value_row[month_cols].sum(axis=1)
+    if not total_value_row.empty:
+        total_value_row["Total"] = total_value_row[month_cols].sum(axis=1)
+    
+    # Create formatted copies to avoid dtype conversion warnings
+    all_cols = month_cols + ["Total"]
+    
+    # Format contract values
+    if not contract_value_row.empty:
+        formatted_contract = contract_value_row.copy()
+        for col in all_cols:
+            if col in formatted_contract.columns:
+                formatted_contract[col] = formatted_contract[col].apply(lambda x: f"${x:,.2f}" if pd.notna(x) else "$0.00")
+        contract_value_row = formatted_contract
+    
+    # Format grant values
+    if not grant_value_row.empty:
+        formatted_grant = grant_value_row.copy()
+        for col in all_cols:
+            if col in formatted_grant.columns:
+                formatted_grant[col] = formatted_grant[col].apply(lambda x: f"${x:,.2f}" if pd.notna(x) else "$0.00")
+        grant_value_row = formatted_grant
+    
+    # Format total values
+    if not total_value_row.empty:
+        formatted_total = total_value_row.copy()
+        for col in all_cols:
+            if col in formatted_total.columns:
+                formatted_total[col] = formatted_total[col].apply(lambda x: f"${x:,.2f}" if pd.notna(x) else "$0.00")
+        total_value_row = formatted_total
+    
+    # Combine count and value tables
+    result = pd.concat([count_pivot, contract_value_row, grant_value_row, total_value_row])
+    
+    return result
 
 
-def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> None:
+
+
+def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> Dict:
     """
     Process a single fiscal year and print statistics.
     
@@ -316,14 +472,11 @@ def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> None
         total = df_fy["Obligations_Float"].sum()
         print(f"\nTotal for FY{year}: ${total:,.2f}")
         
-        # Export if requested
-        if export:
-            filename = export_obligations_table(obligations_table, year)
-            print(f"Exported obligations table to: {filename}")
+        # Note: Individual export removed - data will be combined later
     else:
         print("No data available")
     
-    # Table 2: New awards by category
+    # Table 2: New awards by category (counts and values)
     print("\n2. New Awards (Modification 0) by Category and Month")
     print("-" * 60)
     
@@ -331,12 +484,14 @@ def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> None
     if not awards_table.empty:
         print(tabulate(awards_table, headers="keys", tablefmt="grid"))
         
-        # Export if requested
-        if export:
-            filename = export_awards_table(awards_table, year)
-            print(f"Exported awards table to: {filename}")
+        # Note: Individual export removed - data will be combined later
     else:
         print("No new awards found")
+    
+    # Return raw data for export if requested
+    if export:
+        return get_awards_data_for_year(df, year)
+    return {}
 
 
 def main():
@@ -351,8 +506,17 @@ def main():
     if args.export:
         print("CSV export enabled - files will be saved to current directory")
     
+    # Collect data from all fiscal years
+    all_awards_data = {}
     for fy in fiscal_years:
-        process_fiscal_year(fy, data_dir, args.export)
+        fy_data = process_fiscal_year(fy, data_dir, args.export)
+        if fy_data:
+            all_awards_data[fy] = fy_data
+    
+    # Export combined CSV if requested
+    if args.export and all_awards_data:
+        filename = create_combined_awards_csv(all_awards_data, fiscal_years)
+        print(f"\nExported combined awards data to: {filename}")
     
     print(f"\n{'='*60}")
     print("Analysis complete")

@@ -25,16 +25,20 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Define the projects and their keyword batches.
 PROJECTS = {
     "MSR": ["MSR", "Mars Sample Return"],
+    "Chandra": ["Chandra"],
+    "MRO": ["MRO", "Mars Reconnaissance Orbiter","~subscription"],
     "Juno": ["Juno"],
     "New Horizons": ["New Horizons","~New Horizons Aeronautics, Llc"],
+    "MAVEN": ["MAVEN", "Mars Atmosphere and Volatile EvolutioN"],
     "OSIRIS-APEX": ["OSIRIS-APEX", "Apophis Explorer"],
     "Mars Odyssey": ["ODY","Mars Odyssey","Odyssey", "~Odyssey Space Research"],
-    "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy","~netbackup","~netback up","~Metgreen Solutions Inc","~software","~maintenance","~consulting services","~renewal"],
+    "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy","~netbackup","~netback up","~Metgreen Solutions Inc","~software","~maintenance","~consulting services","~renew"],
     "SAGE-III": ["SAGE-III", "Stratospheric Aerosol and Gas Experiment III", "SAGE III"],
     "DSCOVR": ["DSCOVR", "Deep Space Climate Observatory", "DSCOVR EPIC", "DSCOVR NISTAR"],
-    "Terra": ["Terra", "Terra EOS","~Terra Ferma Llc","~A-Terra Llc","~Terra Universal, Inc.","~Terra Research Inc."],
+    "Terra": ["Terra", "Terra EOS","~Terra Ferma Llc","~A-Terra Llc","~Terra Universal, Inc.","~Terra Research Inc.","~gas analyzer","~purge cabinet"],
     "Aqua": ["Aqua"],
     "Aura": ["Aura"],
+    "JWST": ["JWST", "James Webb Space Telescope"],
     "OCO-3": ["OCO-3", "Orbiting Carbon Observatory-3", "OCO3"],
     "OCO-2": ["OCO-2", "Orbiting Carbon Observatory-2", "OCO2"],
     "GOLD": ["GOLD", "Global-scale Observations of the Limb and Disk"],
@@ -43,11 +47,11 @@ PROJECTS = {
     "MMS": ["MMS", "Magnetospheric Multiscale"],
     "THEMIS_ARTEMIS": ["THEMIS", "THEMIS-ARTEMIS"],
     "TIMED": ["TIMED", "Thermosphere Ionosphere Mesosphere Energetics Dynamics"],
-    "VIPER": ["VIPER", "Volatiles Investigating Polar Exploration Rover", "~versatile imager platform","~VIPER machine","~3d systems","~vxworks VIPER","~VIPER fabrication services","~Eo14042"],
+    "VIPER": ["VIPER", "Volatiles Investigating Polar Exploration Rover", "~versatile imager platform","~VIPER machine","~3d systems","~vxworks VIPER","~VIPER fabrication services","~Eo14042","~warranty"],
     "Rosalind_Franklin_Rover": [
         "Rosalind Franklin",
         "ExoMars",
-        "~trace gas orbiter"
+        "~trace gas orbiter", "~TGO"
     ],
     "COSI": ["COSI", "Compton Spectrometer and Imager"],
     "LISA": ["LISA", "Laser Interferometer Space Antenna","LISA-T"],
@@ -291,9 +295,15 @@ def main():
         latest_only.sort_values(by=["Year", "Award Type"], inplace=True)
         
         # Split into two dataframes, one that matches "Grant" in Award Type and one that does not
-        grants_only = latest_only[latest_only["Award Type"].str.contains("Grant", case=False, na=False)]
-        contracts = latest_only[~latest_only["Award Type"].str.contains("Grant", case=False, na=False)]
-        
+        # Define a regex pattern for grants or cooperative agreements
+
+        pattern = r"\b(?:Grant|Cooperative Agreement)s?\b"
+
+        mask = latest_only["Award Type"].str.contains(pattern, flags=re.I, na=False, regex=True)
+
+        grants_only = latest_only[mask]
+        contracts  = latest_only[~mask]
+                
         years_str = "_".join(str(y) for y in years)
         out_path = out_dir / f"{project_name}_{years_str}"
         

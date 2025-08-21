@@ -27,10 +27,12 @@ PROJECTS = {
     "MSR": ["MSR", "Mars Sample Return"],
     "Chandra": ["Chandra"],
     "MRO": ["MRO", "Mars Reconnaissance Orbiter","~subscription"],
-    "Juno": ["Juno"],
+    "Juno": ["Juno", "~check valve"],
+    "Roman": ["Roman", "Roman Space Telescope", "Nancy Grace Roman Space Telescope", "WFIRST", "Wide Field Infrared Survey Telescope"],
     "New Horizons": ["New Horizons","~New Horizons Aeronautics, Llc"],
     "MAVEN": ["MAVEN", "Mars Atmosphere and Volatile EvolutioN"],
     "OSIRIS-APEX": ["OSIRIS-APEX", "Apophis Explorer"],
+    "Mars Express": ["Mars Express"],
     "Mars Odyssey": ["ODY","Mars Odyssey","Odyssey", "~Odyssey Space Research"],
     "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy","~netbackup","~netback up","~Metgreen Solutions Inc","~software","~maintenance","~consulting services","~renew"],
     "SAGE-III": ["SAGE-III", "Stratospheric Aerosol and Gas Experiment III", "SAGE III"],
@@ -43,7 +45,7 @@ PROJECTS = {
     "OCO-2": ["OCO-2", "Orbiting Carbon Observatory-2", "OCO2"],
     "GOLD": ["GOLD", "Global-scale Observations of the Limb and Disk"],
     "Hinode": ["Hinode", "Solar-B", "Hinode NASA"],
-    "IBEX": ["IBEX", "Interstellar Boundary Explorer", "IBEX NASA","~ibex business"],
+    "IBEX": ["IBEX", "Interstellar Boundary Explorer","~business"],
     "MMS": ["MMS", "Magnetospheric Multiscale"],
     "THEMIS_ARTEMIS": ["THEMIS", "THEMIS-ARTEMIS"],
     "TIMED": ["TIMED", "Thermosphere Ionosphere Mesosphere Energetics Dynamics"],
@@ -267,6 +269,50 @@ def filter_latest_modifications(df: pd.DataFrame) -> pd.DataFrame:
     
     return result
 
+def split_contract_mod_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Split the "Contract/Mod Number" column into two separate columns:
+    "Contract" and "Mod Number" based on the first space character.
+    
+    Args:
+        df: DataFrame containing "Contract/Mod Number" column
+        
+    Returns:
+        DataFrame with split columns, original column removed
+    """
+    if df.empty or "Contract/Mod Number" not in df.columns:
+        return df
+    
+    # Create a copy to avoid modifying the original
+    result = df.copy()
+    
+    # Split on first space, expand=True creates two columns
+    # n=1 limits to splitting on first space only
+    split_cols = result["Contract/Mod Number"].str.split(' ', n=1, expand=True)
+    
+    # Handle cases where there might be no space (no modification)
+    result["Contract"] = split_cols[0]
+    result["Mod Number"] = split_cols[1] if 1 in split_cols.columns else ""
+    
+    # Get the position of the original column
+    cols = list(result.columns)
+    orig_col_idx = cols.index("Contract/Mod Number")
+    
+    # Remove the original column
+    result = result.drop(columns=["Contract/Mod Number"])
+    
+    # Reorder columns to place new columns where the old one was
+    cols_before = cols[:orig_col_idx]
+    cols_after = cols[orig_col_idx + 1:]
+    # Remove the new columns from their current positions at the end
+    cols_after = [c for c in cols_after if c not in ["Contract", "Mod Number"]]
+    
+    # Create new column order
+    new_cols = cols_before + ["Contract", "Mod Number"] + cols_after
+    result = result[new_cols]
+    
+    return result
+
 def main():
     data_dir = Path("data")
     out_dir = Path("filtered")
@@ -290,6 +336,9 @@ def main():
         
         # Filter to only include latest modifications
         latest_only = filter_latest_modifications(combined)
+        
+        # Split the Contract/Mod Number column into separate columns
+        latest_only = split_contract_mod_column(latest_only)
         
         # Sort by Reverse Year and Award Type
         latest_only.sort_values(by=["Year", "Award Type"], inplace=True)

@@ -33,6 +33,7 @@ PROJECTS = {
     "MAVEN": ["MAVEN", "Mars Atmosphere and Volatile EvolutioN"],
     "OSIRIS-APEX": ["OSIRIS-APEX", "Apophis Explorer"],
     "Mars Express": ["Mars Express"],
+    "Perseverance": ["Perseverance", "Mars 2020", "M2020","Mars2020"],
     "Mars Odyssey": ["ODY","Mars Odyssey","Odyssey", "~Odyssey Space Research"],
     "VERITAS": ["VERITAS","Venus Emissivity, Radio Science, InSAR, Topography, and Spectroscopy","~netbackup","~netback up","~Metgreen Solutions Inc","~software","~maintenance","~consulting services","~renew"],
     "SAGE-III": ["SAGE-III", "Stratospheric Aerosol and Gas Experiment III", "SAGE III"],

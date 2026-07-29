@@ -1,236 +1,144 @@
 #!/usr/bin/env python3
 """
-A Python script to query NASA contract data for specified fiscal years,
-apply custom transformations, and write the returned data (for all states)
-to separate CSV files (one per fiscal year) with "State" and "District" columns prepended.
+Fetch NASA Procurement Data View exports for specified fiscal years.
 
-Transformations applied:
-    1. Swap the columns for Award Type (index 6) and Contractor Type - Indicators (index 7).
-    2. Convert Description (index 14) to sentence case.
-    3. Remove extra surrounding quotes from certain fields.
-
-Intended usage in a GitHub repository:
-    - CSV files are written to a configurable output directory (e.g. data/)
-    - A GitHub Action may regularly run this script (or a wrapper) to update the CSV files.
+Each fiscal year is written to a separate CSV with derived State and District
+columns. Source field text is otherwise preserved verbatim.
 """
 
-import os
+import argparse
 import csv
 import logging
+import os
 import re
-import requests
+import tempfile
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict, Pattern, Optional
-import argparse
-import datetime
+from typing import List, Tuple
+
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-# A constant list of default states: all 50 states + DC, PR, VI.
-DEFAULT_STATES: List[Tuple[str, str]] = [
-    ("AK", "Alaska"), ("AL", "Alabama"), ("AR", "Arkansas"), ("AZ", "Arizona"),
-    ("CA", "California"), ("CO", "Colorado"), ("CT", "Connecticut"), ("DC", "District of Columbia"),
-    ("DE", "Delaware"), ("FL", "Florida"), ("GA", "Georgia"), ("HI", "Hawaii"),
-    ("IA", "Iowa"), ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"),
-    ("KS", "Kansas"), ("KY", "Kentucky"), ("LA", "Louisiana"), ("MA", "Massachusetts"),
-    ("MD", "Maryland"), ("ME", "Maine"), ("MI", "Michigan"), ("MN", "Minnesota"),
-    ("MO", "Missouri"), ("MS", "Mississippi"), ("MT", "Montana"), ("NC", "North Carolina"),
-    ("ND", "North Dakota"), ("NE", "Nebraska"), ("NH", "New Hampshire"), ("NJ", "New Jersey"),
-    ("NM", "New Mexico"), ("NV", "Nevada"), ("NY", "New York"), ("OH", "Ohio"),
-    ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"), ("PR", "Puerto Rico"),
-    ("RI", "Rhode Island"), ("SC", "South Carolina"), ("SD", "South Dakota"), ("TN", "Tennessee"),
-    ("TX", "Texas"), ("UT", "Utah"), ("VA", "Virginia"), ("VI", "Virgin Islands"),
-    ("VT", "Vermont"), ("WA", "Washington"), ("WI", "Wisconsin"), ("WV", "West Virginia"),
-    ("WY", "Wyoming")
+
+@dataclass(frozen=True)
+class QueryTarget:
+    output_state: str
+    request_state: str
+    request_code: str
+    request_state2: str
+    international: bool = False
+
+
+DEFAULT_TARGETS: List[QueryTarget] = [
+    QueryTarget("AK", "ALASKA", "02", "AK"),
+    QueryTarget("AL", "ALABAMA", "01", "AL"),
+    QueryTarget("AR", "ARKANSAS", "05", "AR"),
+    QueryTarget("AZ", "ARIZONA", "04", "AZ"),
+    QueryTarget("CA", "CALIFORNIA", "06", "CA"),
+    QueryTarget("CO", "COLORADO", "08", "CO"),
+    QueryTarget("CT", "CONNECTICUT", "09", "CT"),
+    QueryTarget("DC", "WASHINGTON D.C.", "11", "DC"),
+    QueryTarget("DE", "DELAWARE", "10", "DE"),
+    QueryTarget("FL", "FLORIDA", "12", "FL"),
+    QueryTarget("GA", "GEORGIA", "13", "GA"),
+    QueryTarget("HI", "HAWAII", "15", "HI"),
+    QueryTarget("IA", "IOWA", "19", "IA"),
+    QueryTarget("ID", "IDAHO", "16", "ID"),
+    QueryTarget("IL", "ILLINOIS", "17", "IL"),
+    QueryTarget("IN", "INDIANA", "18", "IN"),
+    QueryTarget("KS", "KANSAS", "20", "KS"),
+    QueryTarget("KY", "KENTUCKY", "21", "KY"),
+    QueryTarget("LA", "LOUISIANA", "22", "LA"),
+    QueryTarget("MA", "MASSACHUSETTS", "25", "MA"),
+    QueryTarget("MD", "MARYLAND", "24", "MD"),
+    QueryTarget("ME", "MAINE", "23", "ME"),
+    QueryTarget("MI", "MICHIGAN", "26", "MI"),
+    QueryTarget("MN", "MINNESOTA", "27", "MN"),
+    QueryTarget("MO", "MISSOURI", "29", "MO"),
+    QueryTarget("MS", "MISSISSIPPI", "28", "MS"),
+    QueryTarget("MT", "MONTANA", "30", "MT"),
+    QueryTarget("NC", "NORTH CAROLINA", "37", "NC"),
+    QueryTarget("ND", "NORTH DAKOTA", "38", "ND"),
+    QueryTarget("NE", "NEBRASKA", "31", "NE"),
+    QueryTarget("NH", "NEW HAMPSHIRE", "33", "NH"),
+    QueryTarget("NJ", "NEW JERSEY", "34", "NJ"),
+    QueryTarget("NM", "NEW MEXICO", "35", "NM"),
+    QueryTarget("NV", "NEVADA", "32", "NV"),
+    QueryTarget("NY", "NEW YORK", "36", "NY"),
+    QueryTarget("OH", "OHIO", "39", "OH"),
+    QueryTarget("OK", "OKLAHOMA", "40", "OK"),
+    QueryTarget("OR", "OREGON", "41", "OR"),
+    QueryTarget("PA", "PENNSYLVANIA", "42", "PA"),
+    QueryTarget("RI", "RHODE ISLAND", "44", "RI"),
+    QueryTarget("SC", "SOUTH CAROLINA", "45", "SC"),
+    QueryTarget("SD", "SOUTH DAKOTA", "46", "SD"),
+    QueryTarget("TN", "TENNESSEE", "47", "TN"),
+    QueryTarget("TX", "TEXAS", "48", "TX"),
+    QueryTarget("UT", "UTAH", "49", "UT"),
+    QueryTarget("VA", "VIRGINIA", "51", "VA"),
+    QueryTarget("VT", "VERMONT", "50", "VT"),
+    QueryTarget("WA", "WASHINGTON", "53", "WA"),
+    QueryTarget("WI", "WISCONSIN", "55", "WI"),
+    QueryTarget("WV", "WEST VIRGINIA", "54", "WV"),
+    QueryTarget("WY", "WYOMING", "56", "WY"),
+    QueryTarget("International", "OUTSIDE US", "xx", "WORLD", True),
 ]
+
+LEGACY_SOURCE_HEADER = (
+    "Contractor",
+    "Contract/Mod Number",
+    "NASA Center",
+    "Place of Performance",
+    "Award Date",
+    "Completion Date",
+    "Award Type",
+    "Contractor Type - Indicators",
+    "Obligations",
+    "Change in Award Value",
+    "NAICS Code",
+    "Solicitation ID",
+    "Solicitation POC",
+    "Description",
+)
+MODERN_SOURCE_HEADER = (
+    LEGACY_SOURCE_HEADER[:11] + ("TAS Code",) + LEGACY_SOURCE_HEADER[11:]
+)
+
+
+def source_header_for_year(year: int) -> Tuple[str, ...]:
+    if year < 2005:
+        raise ValueError("NPDV contract exports are supported from FY2005 onward")
+    return LEGACY_SOURCE_HEADER if 2005 <= year <= 2008 else MODERN_SOURCE_HEADER
+
+
+class DataValidationError(RuntimeError):
+    """Raised when an NPDV export cannot be validated safely."""
 
 
 @dataclass
 class Config:
-    """
-    Configuration for NASA data retrieval and CSV export.
-    """
-    output_base_filename: str = "nasa_contracts"    # Base name for the output file.
-    output_dir: str = "data"                          # Default output directory.
-    fiscal_years: List[int] = field(default_factory=list)  # e.g. [2025]
-    states: List[Tuple[str, str]] = field(default_factory=list)
+    """Configuration for NASA data retrieval and CSV export."""
+
+    output_base_filename: str = "nasa_contracts"
+    output_dir: str = "data"
+    fiscal_years: List[int] = field(default_factory=list)
+    targets: List[QueryTarget] = field(default_factory=list)
     url: str = "https://prod.nais.nasa.gov/cgibin/npdv/usmap05.cgi"
-    normalizer_reference_filepath: str = None
 
     def __post_init__(self) -> None:
-        if not self.states:
-            self.states = DEFAULT_STATES
-        # Ensure the output directory exists
+        if not self.targets:
+            self.targets = list(DEFAULT_TARGETS)
         os.makedirs(self.output_dir, exist_ok=True)
 
-class TextNormalizer:
-    """
-    A class for normalizing NASA acronyms and definitions in a given text.
-
-    This class loads a reference CSV file (expected to have "Acronym" and "Definition" columns)
-    that contains NASA acronyms and their corresponding definitions. It then uses this data to
-    replace any occurrences of these phrases in the text with their properly capitalized forms.
-    """
-
-    def __init__(self, csv_filepath: Optional[str]) -> None:
-        """
-        Initialize the AcronymNormalizer with the provided CSV file, or None if not using one.
-
-        Args:
-            csv_filepath: Path to the CSV file containing NASA acronyms and definitions.
-        """
-        self.mapping: Dict[str, str] = {}
-        self.pattern: Pattern[str] = None  # Will be set after loading data.
-        if csv_filepath:
-            self._load_data(csv_filepath)
-
-    def _load_data(self, filepath: str) -> None:
-        """
-        Load acronyms and definitions from the given CSV file into a lookup dictionary and compile
-        a regex pattern for fast matching.
-
-        The CSV file is expected to have headers "Acronym" and "Definition".
-
-        Args:
-            filepath: Path to the CSV file.
-        """
-        with open(filepath, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                acronym = row.get("Acronym", "").strip()
-                definition = row.get("Definition", "").strip()
-                if acronym:
-                    # Store acronym with its proper capitalization
-                    self.mapping[acronym.lower()] = acronym.upper()
-                if definition:
-                    # Also map the definition (phrase) in its proper capitalization.
-                    self.mapping[definition.lower()] = definition
-
-        # Sort keys by length descending to ensure longer phrases are matched before shorter ones.
-        sorted_keys = sorted(self.mapping.keys(), key=len, reverse=True)
-        # Build a regex pattern that matches any key.
-        # Using negative lookbehind/lookahead ensures we match whole words/phrases.
-        pattern_str = r"(?<![A-Za-z0-9])(" + "|".join(map(re.escape, sorted_keys)) + r")(?![A-Za-z0-9])"
-        self.pattern = re.compile(pattern_str, re.IGNORECASE)
-
-    @staticmethod
-    def _sentence_case(text: str) -> str:
-        """
-        Convert text to sentence case: first letter uppercase, rest lowercase,
-        while correcting common abbreviations (e.g., "u.s." -> "U.S.").
-        
-        Args:
-            text: The input text to be converted.
-        
-        Returns:
-            A sentence-cased version of the text with corrected abbreviation casing.
-        """
-        text = text.strip()
-        if not text:
-            return text
-
-        # Convert the entire text to lowercase.
-        text_lower = text.lower()
-
-        # Capitalize the first character.
-        sentence_cased = text_lower[0].upper() + text_lower[1:]
-
-        # Define a dictionary for abbreviations that require special casing.
-        abbreviation_fixes = {
-            "u.s.": "U.S.",
-            "ii": "II",
-            "iii": "III"
-        }
-        
-        # Add fiscal year abbreviations correctly (using the loop variable `fy`).
-        current_year = datetime.datetime.now().year
-        for fy in range(2005, current_year + 1):
-            fy_str = str(fy)[2:]
-            abbreviation_fixes[f"fy{fy_str}"] = f"FY{fy_str}"
-
-        # Replace each abbreviation in the text using a case-insensitive search.
-        for wrong, correct in abbreviation_fixes.items():
-            pattern = r'\b' + re.escape(wrong) + r'\b'
-            sentence_cased = re.sub(pattern, correct, sentence_cased, flags=re.IGNORECASE)
-
-        return sentence_cased
-
-    def normalize(self, text: str) -> str:
-        """
-        Replace occurrences of known NASA acronyms and definitions in the provided text with their
-        properly capitalized forms.
-
-        Args:
-            text: The input text (e.g., a contract description) to process.
-
-        Returns:
-            The text with all recognized phrases normalized.
-        """
-        # Apply sentence casing first
-        text = self._sentence_case(text)
-        
-        if not self.pattern:
-            return text
-
-        def replacement(match: re.Match) -> str:
-            matched_text = match.group(0)
-            return self.mapping.get(matched_text.lower(), matched_text)
-
-        # Replace acronyms/phrases without applying sentence case again.
-        return self.pattern.sub(replacement, text)
 
 class NASADataFetcher:
-    """
-    Responsible for fetching NASA contract data and writing a transformed CSV.
-    """
+    """Fetch and validate NASA contract data before atomically writing CSVs."""
 
     def __init__(self, config: Config) -> None:
-        """
-        Initialize with the given configuration.
-        """
         self.config = config
-        self.normalizer = TextNormalizer(self.config.normalizer_reference_filepath)
-        
-    @staticmethod
-    def _sentence_case(text: str) -> str:
-        """
-        Convert text to sentence case: first letter uppercase, rest lowercase.
-        """
-        text = text.strip()
-        if not text:
-            return text
-        return text[0].upper() + text[1:].lower()
 
-    def _sanitize_row(self, row: List[str]) -> None:
-        """
-        Apply custom transformations on a row:
-            - Swap Award Type (index 6) with Contractor Type - Indicators (index 7).
-            - Remove extra quotes from selected fields.
-            - Convert Description (index 14) to sentence case.
-        """
-        # Swap Award Type (6) and Contractor Type (7) if available
-        if len(row) > 7:
-            row[6], row[7] = row[7], row[6]
-
-        # Indices to strip quotes from: Contractor (0), Place of Performance (3),
-        # Award Type (6), Contractor Type (7), Obligations (8), Change in Award Value (9),
-        # Solicitation POC (13), and Description (14).
-        indices_to_strip = [0, 3, 6, 7, 8, 9, 13, 14]
-        for i in indices_to_strip:
-            if i < len(row):
-                row[i] = row[i].strip('"')
-
-        # Titleize the Contractor name
-        if len(row) > 0:
-            row[0] = row[0].title()
-        
-        # Normalize the description at index 14 (delegate sentence-casing & acronym fixes to TextNormalizer)
-        if len(row) > 14:
-            normalized_description = self.normalizer.normalize(row[14])
-            row[14] = normalized_description
-
-    def _build_post_data(self, year: int, st_code: str, st_name: str) -> dict:
+    def _build_post_data(self, year: int, target: QueryTarget) -> dict:
         """
         Build the form data payload for the POST request.
         """
@@ -239,99 +147,163 @@ class NASADataFetcher:
         end_date = f"{year}-09-30"
 
         return {
-            'bus_cat': 'ALL',
+            'bus_cat': '' if target.international else 'ALL',
             'fy': fy_str,
-            'recovery': '0',
+            'recovery': '' if target.international else '0',
             'v_center': 'ALL',
             'v_database': fy_str.replace(" ", ""),
-            'v_code': '53',
-            'v_district': 'ALL',
+            'v_code': target.request_code,
+            'v_district': '' if target.international else 'ALL',
             'v_end_date': end_date,
             'v_start_date': start_date,
-            'v_state': st_name.upper(),
-            'v_state2': st_code,
+            'v_state': target.request_state,
+            'v_state2': target.request_state2,
             'action': 'Export to Excel'
         }
 
-    def _determine_district(self, st_code: str, place_of_performance: str) -> str:
+    def _determine_district(
+        self, target: QueryTarget, place_of_performance: str
+    ) -> str:
         """
-        Determine the congressional district string (e.g. "WA-07" or "MT-00").
-        For at-large states (e.g. AK, WY, MT, ND, SD, VT, DE), always return XX-00.
-        Otherwise, try to extract the district number from the place of performance.
+        Determine the congressional district string from the source-reported token.
         """
-        at_large_states = {"AK", "WY", "MT", "ND", "SD", "VT", "DE"}
-        if st_code in at_large_states:
-            return f"{st_code}-00"
+        if target.international:
+            return ""
 
-        # Attempt to extract two digits from the expected location in the string.
-        if len(place_of_performance) >= 4:
-            district_number = place_of_performance[-4:-2]
-            if district_number.isdigit() and int(district_number) != 0:
-                return f"{st_code}-{district_number}"
-        return ""
+        match = re.search(
+            r"\(District\s+(\d{2}|NA)\)\s*$",
+            place_of_performance,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return ""
+        return f"{target.output_state}-{match.group(1).upper()}"
+
+    @staticmethod
+    def _unwrap_source_field(value: str) -> str:
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            return value[1:-1]
+        return value
+
+    def _parse_response(
+        self, year: int, target: QueryTarget, response_text: str
+    ) -> List[List[str]]:
+        if "Invalid Entry" in response_text:
+            raise DataValidationError(
+                f"NPDV rejected the request for {target.output_state}"
+            )
+
+        count_match = re.search(
+            r"([\d,]+)\s+Records?\s+found",
+            response_text,
+            flags=re.IGNORECASE,
+        )
+        if not count_match:
+            raise DataValidationError(
+                f"Missing record count for {target.output_state}"
+            )
+        reported_count = int(count_match.group(1).replace(",", ""))
+
+        expected_header = source_header_for_year(year)
+        lines = [
+            line[:-1] if line.endswith("\r") else line
+            for line in response_text.split("\n")
+        ]
+        header_index = None
+        for index, line in enumerate(lines):
+            fields = tuple(line.split("\t"))
+            if fields[:2] == expected_header[:2]:
+                if fields != expected_header:
+                    raise DataValidationError(
+                        f"Unexpected FY{year} schema for {target.output_state}"
+                    )
+                header_index = index
+                break
+
+        if header_index is None:
+            raise DataValidationError(
+                f"Missing FY{year} export header for {target.output_state}"
+            )
+
+        parsed_rows: List[List[str]] = []
+        for line_number, line in enumerate(
+            lines[header_index + 1 :], start=header_index + 2
+        ):
+            if not line:
+                continue
+            fields = line.split("\t")
+            if len(fields) != len(expected_header):
+                raise DataValidationError(
+                    f"FY{year} {target.output_state} line {line_number} has "
+                    f"{len(fields)} fields; expected {len(expected_header)}"
+                )
+
+            fields = [self._unwrap_source_field(value) for value in fields]
+            fields[6], fields[7] = fields[7], fields[6]
+            district = self._determine_district(target, fields[3])
+            parsed_rows.append([target.output_state, district] + fields)
+
+        if len(parsed_rows) != reported_count:
+            raise DataValidationError(
+                f"FY{year} {target.output_state} reported {reported_count} "
+                f"records but yielded {len(parsed_rows)} rows"
+            )
+        return parsed_rows
 
     def fetch_and_save_data(self) -> None:
-        """
-        For each fiscal year in the configuration, fetch data for every state and write to a separate CSV file.
-        """
+        """Fetch every configured target and atomically publish each fiscal year."""
         for year in self.config.fiscal_years:
             filename = f"{self.config.output_base_filename}_{year}.csv"
             full_path = os.path.join(self.config.output_dir, filename)
-            headers_written = False
-
+            expected_header = source_header_for_year(year)
+            temporary = tempfile.NamedTemporaryFile(
+                mode="w",
+                newline="",
+                encoding="utf-8",
+                prefix=f".{filename}.",
+                suffix=".tmp",
+                dir=self.config.output_dir,
+                delete=False,
+            )
+            temporary_path = temporary.name
             try:
-                with open(full_path, mode="w", newline="", encoding="utf-8") as csvfile:
+                with temporary as csvfile:
                     writer = csv.writer(csvfile)
+                    writer.writerow(["State", "District"] + list(expected_header))
 
-                    # Loop through each state for the given fiscal year.
-                    for st_code, st_name in self.config.states:
-                        logging.info("Downloading contract data for %s in fiscal year %s...", st_name, year)
-                        form_data = self._build_post_data(year, st_code, st_name)
-                        try:
-                            response = requests.post(
-                                self.config.url,
-                                data=form_data,
-                                timeout=30  # seconds
-                            )
-                            response.raise_for_status()
-                        except requests.RequestException as err:
-                            logging.error("Request failed for %s: %s", st_name, err)
-                            continue
+                    for target in self.config.targets:
+                        logging.info(
+                            "Downloading contract data for %s in fiscal year %s...",
+                            target.output_state,
+                            year,
+                        )
+                        response = requests.post(
+                            self.config.url,
+                            data=self._build_post_data(year, target),
+                            timeout=30,
+                        )
+                        response.raise_for_status()
+                        response_text = response.content.decode("ISO-8859-1")
+                        rows = self._parse_response(year, target, response_text)
+                        writer.writerows(rows)
+                        logging.info(
+                            "Finished %s for fiscal year %s. Found %d records",
+                            target.output_state,
+                            year,
+                            len(rows),
+                        )
 
-                        # Check if response indicates an error
-                        if "Invalid Entry" in response.text:
-                            logging.warning("Invalid Entry for %s; skipping.", st_name)
-                            continue
+                    csvfile.flush()
+                    os.fsync(csvfile.fileno())
 
-                        lines = response.text.splitlines()
-                        if len(lines) < 7:
-                            logging.warning("Unexpected response format for %s.", st_name)
-                            continue
-
-                        # Process lines from the response.
-                        for row_index, line in enumerate(lines, start=1):
-                            # The 7th line is the NASA export header.
-                            if row_index == 7:
-                                if not headers_written:
-                                    original_header = line.split("\t")
-                                    new_header = ["State", "District"] + original_header
-                                    writer.writerow(new_header)
-                                    headers_written = True
-                                continue
-
-                            # Process data rows after the header.
-                            if row_index > 7:
-                                raw_data = line.split("\t")
-                                district_str = ""
-                                if len(raw_data) > 3:
-                                    district_str = self._determine_district(st_code, raw_data[3])
-                                self._sanitize_row(raw_data)
-                                csv_row = [st_code, district_str] + raw_data
-                                writer.writerow(csv_row)
-                        logging.info("Finished for %s in fiscal year %s. Found %d contracts", st_name, year, len(lines)-7)
+                os.replace(temporary_path, full_path)
                 logging.info("File written to: %s", full_path)
-            except IOError as err:
-                logging.error("Failed to write CSV file %s: %s", full_path, err)
+            except BaseException:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
+                raise
 
 
 def parse_args() -> argparse.Namespace:
@@ -369,7 +341,6 @@ def main() -> None:
         output_base_filename="nasa_contracts",
         output_dir=args.output_dir,
         fiscal_years=args.fiscal_year,
-        normalizer_reference_filepath="reference/nasa_acronyms.csv"
     )
     fetcher = NASADataFetcher(config)
     fetcher.fetch_and_save_data()

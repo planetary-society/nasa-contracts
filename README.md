@@ -1,21 +1,30 @@
 # NASA Contracts Data Fetcher
 
-This is both a data collection and python script that collates NASA contract data from [NASA's Procurement Data View (NPDV) database](https://prod.nais.nasa.gov/cgibin/npdv/npdv.cgi). The script downloads NASA contract data for all U.S. states and territories, by year, and outputs a single comprehensive CSV file.
+This repository contains fiscal-year data collected from [NASA's Procurement Data View (NPDV)](https://prod.nais.nasa.gov/cgibin/npdv/npdv.cgi) and the Python script used to fetch it. Each annual CSV combines NPDV's 50-state, Washington, D.C., and Outside U.S. exports. Outside U.S. records use `International` in the derived `State` column.
 
 ## Data Access
 
-Year-by-year contract data for FYs 2005 - current are availabe in the ```data/``` subdirectory.
+Year-by-year award-action data for FY2005 through the current fiscal year is available in the `data/` subdirectory.
 
-Each year is in the format of ```nasa_contracts_{YYYY}``` where YYYY is the 4-digit fiscal year. Note that contracts are included in a fiscal year if **only if they are created or modified during that fiscal year**. Some contracts may still be open (based on their completion date) but unmodified. You must parse the data accordingly if you want to find all open contracts.
+Each file is named `nasa_contracts_{YYYY}.csv`, where `YYYY` is the four-digit fiscal year. An award appears in a fiscal year only when it was created or modified during that year. An award may remain active without appearing in a later file if it was not modified.
 
 ## Data Freshness
 
-The three most recent fiscal years are refreshed on a weekly basis and pushed to this repo. (You can confirm using the last modified commit dates on the csv files).
+The current and two preceding fiscal years are refreshed daily by GitHub Actions.
+
+## Output Schemas
+
+NPDV exposes two historical export schemas, which are retained rather than artificially normalized:
+
+- FY2005–FY2008: 16 output columns, including the derived `State` and `District` columns; no `TAS Code`.
+- FY2009 onward: 17 output columns, including `TAS Code`.
+
+All source field values preserve NPDV's capitalization, punctuation, embedded quotes, and leading or trailing whitespace after decoding the export's transport-level quoting. The scraper does not sentence-case descriptions, title-case contractor names, or apply the acronym reference file.
 
 ### Output Data Column Descriptions
 
-- **State**: Two-letter state/territory code (e.g., "CA", "NY")
-- **District**: Congressional district code (e.g., "CA-12", "NY-03", or "00" for at-large (single) district states)
+- **State**: Two-letter domestic jurisdiction code (for example, `CA` or `DC`), or `International` for NPDV's Outside U.S. export
+- **District**: Source-reported congressional district prefixed with the state code (for example, `CA-12`, `MT-02`, `DC-98`, or `TX-NA`); blank when NPDV provides no district or for International records
 - **Contractor**: Name of the contracting organization
 - **Contract/Mod Number**: Unique identifier for the contract or modification
 - **NASA Center**: NASA center or facility managing the contract
@@ -27,46 +36,57 @@ The three most recent fiscal years are refreshed on a weekly basis and pushed to
 - **Obligations**: Current fiscal year funding obligated
 - **Change in Award Value**: Change in total contract value from this modification
 - **NAICS Code**: North American Industry Classification System code
-- **TAS Code**: Treasury Account Symbol identifying the funding source
+- **TAS Code**: Treasury Account Symbol identifying the funding source (FY2009 onward only)
 - **Solicitation ID**: Reference number for the original solicitation
 - **Solicitation POC**: Point of contact for the solicitation
 - **Description**: Brief description of the contracted work or modification
 
 
 ## Installation
-You are welcome to run this script yourself. No API or other data access keys are required.
 
-1. Clone this repository (or just copy the main script, acronym reference file is optional)
-2. Install required dependencies:
+No API key is required.
+
+1. Clone this repository.
+2. Create or activate a virtual environment.
+3. Install the dependencies:
+
 ```bash
-pip install requests
+.venv/bin/pip install -r requirements.txt
 ```
-Requires Python 3.6 or newer.
 
 ## Usage
 
 Basic usage with a single fiscal year:
+
 ```bash
-python nasa_contracts.py -fy 2025
+.venv/bin/python fetch-contracts.py -fy 2025
 ```
 
 Fetch data for multiple fiscal years:
+
 ```bash
-python nasa_contracts.py -fy 2024 2025
+.venv/bin/python fetch-contracts.py -fy 2024 2025
 ```
 
-Specify a custom output directory (default is ```./data```):
+Specify a custom output directory (default is `./data`):
+
 ```bash
-python nasa_contracts.py -fy 2025 -dir /path/to/output
+.venv/bin/python fetch-contracts.py -fy 2025 -dir /path/to/output
 ```
 
-You can also provide a custom or modified list of acronmys to capitalize in the output by providing a csv file with columns ```Acronym,Description``` in a ```references/nasa_acronmys.csv``` directory. This is optional.
+Run the test suite:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
 
 ## Known Limitations
 
-- **Missing State Data**: Contracts without an associated Place of Performance (such as certain Commercial Lunar Payload Services contracts) will not appear in the dataset
+- **Missing State Data**: NPDV's geographical query excludes records without a Place of Performance state
+- **Upstream Coverage**: NPDV notes that intragovernmental awards are not comprehensively captured beginning in FY2007
 - **Subcontract Exclusion**: The dataset does not include subcontract data. This is particularly relevant for JPL-related contracts, as JPL is operated by Caltech under contract, meaning their contracts are not directly reported in this system
-- **District Assignment**: Congressional districts are derived from the place of performance field and may not always be accurate
+- **District Assignment**: District values are extracted from NPDV's Place of Performance text and inherit any upstream omissions or coding errors
+- **Legacy Award Types**: Some FY2005–FY2008 Award Type values contain compound, comma-separated source text; these strings are preserved verbatim rather than normalized for downstream category matching
 - **Data Source Stability**: The script relies on NASA's NPDV database interface, which may change without notice
 
 ## Contributing

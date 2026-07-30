@@ -22,7 +22,7 @@ FULL_SCAN = os.environ.get("NPDV_FULL_DATA_TESTS") == "1"
 
 
 def data_files():
-    return sorted(DATA_DIR.glob("nasa_contracts_[0-9][0-9][0-9][0-9].csv"))
+    return sorted(DATA_DIR.glob("nasa_awards_[0-9][0-9][0-9][0-9].csv"))
 
 
 def fiscal_year_of(path):
@@ -55,6 +55,11 @@ class CommittedDataTests(unittest.TestCase):
         self.assertTrue(years, f"no NPDV exports found in {DATA_DIR}")
         self.assertEqual(2005, min(years))
         self.assertEqual(list(range(min(years), max(years) + 1)), years)
+
+    def test_legacy_contract_filenames_are_not_committed(self):
+        legacy_files = sorted(DATA_DIR.glob("nasa_contracts_*.csv"))
+
+        self.assertEqual([], legacy_files)
 
     def test_headers_match_the_schema_for_their_year(self):
         for path in data_files():

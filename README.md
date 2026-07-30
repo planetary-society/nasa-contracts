@@ -10,7 +10,7 @@ Each file is named `nasa_awards_{YYYY}.csv`, where `YYYY` is the four-digit fisc
 
 ## Data Freshness
 
-The current and two preceding fiscal years are refreshed daily by GitHub Actions.
+The current and two preceding fiscal years are refreshed daily by GitHub Actions. NPDV publishes the current fiscal year only through the previous month end, so the newest file lags by up to one month no matter how often it is refreshed.
 
 ## Output Schemas
 
@@ -28,13 +28,13 @@ NPDV exposes two historical export schemas, which are retained rather than artif
 - **NASA Center**: NASA center or facility managing the contract
 - **Place of Performance**: Location where the contracted work is performed
 - **Award Date**: Date when the contract or modification was awarded
-- **Completion Date**: Expected completion date for the contract
+- **Completion Date**: End of the contract period of performance, covering the contract and all modifications to it; unexercised options are not reflected
 - **Award Type**: Type of award (e.g., Delivery Order, Purchase Order)
-- **Contractor Type - Indicators**: Business size and socioeconomic indicators
-- **Obligations**: Current fiscal year funding obligated, as a whole-dollar integer with no currency symbol or thousands separators (for example, `0`, `35000`, or `-16915` for a deobligation)
-- **Change in Award Value**: Change in total contract value from this modification, in the same whole-dollar integer format
+- **Contractor Type - Indicators**: Contractor category and socioeconomic indicators — business size (large or small, and small-business subcategories such as 8(a), woman-owned, and SBIR), educational institution, nonprofit institution, or intragovernmental
+- **Obligations**: Funding obligated during the file's fiscal year, as a whole-dollar integer with no currency symbol or thousands separators (for example, `0`, `35000`, or `-16915` for a deobligation). This is not the cumulative total obligated since award
+- **Change in Award Value**: Change this action makes to the total amount agreed upon, including all deliverables and exercised options, in the same whole-dollar integer format. Options that have not been exercised in writing are excluded, so this column is not a measure of contract ceiling
 - **NAICS Code**: North American Industry Classification System code
-- **TAS Code**: Treasury Account Symbol identifying the funding source (FY2009 onward only)
+- **TAS Code**: Treasury Account Symbol identifying the funding source — a two-character agency identifier, a four-character main account code, and an optional three-character subaccount code (FY2009 onward only). The fiscal year of the funds is not encoded in the TAS
 - **Solicitation ID**: Reference number for the original solicitation
 - **Solicitation POC**: Point of contact for the solicitation
 - **Description**: Brief description of the contracted work or modification
@@ -81,6 +81,7 @@ NPDV_LIVE_TESTS=1 python -m unittest discover -s tests -v
 
 ## Known Limitations
 
+- **Purchase Order Threshold**: NPDV includes all contracts, assistance awards, cooperative agreements, and space act agreements, but only those purchase orders with a value greater than $25,000. Smaller purchase orders are absent from the dataset entirely
 - **Missing State Data**: NPDV's geographical query excludes records without a Place of Performance state
 - **Upstream Coverage**: NPDV notes that intragovernmental awards are not comprehensively captured beginning in FY2007
 - **Subcontract Exclusion**: The dataset does not include subcontract data. This is particularly relevant for JPL-related contracts, as JPL is operated by Caltech under contract, meaning their contracts are not directly reported in this system

@@ -109,9 +109,7 @@ class LiveExportTests(unittest.TestCase):
         except (requests.ConnectionError, requests.Timeout) as error:
             self.skipTest(f"NPDV unreachable: {error}")
 
-        destination = (
-            Path(self.output_dir.name) / f"nasa_contracts_{self.fiscal_year}.csv"
-        )
+        destination = Path(self.output_dir.name) / f"nasa_awards_{self.fiscal_year}.csv"
         with destination.open(newline="", encoding="utf-8") as csvfile:
             rows = list(csv.reader(csvfile))
 

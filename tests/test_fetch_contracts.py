@@ -621,7 +621,7 @@ class AtomicFetchTests(unittest.TestCase):
         self.international = TARGETS["International"]
 
     def test_failed_target_does_not_replace_existing_file(self):
-        destination = Path(self.output_dir.name) / "nasa_contracts_2026.csv"
+        destination = Path(self.output_dir.name) / "nasa_awards_2026.csv"
         destination.write_bytes(b"existing complete data\n")
         mt_response = make_http_response(
             make_export_response(
@@ -647,7 +647,7 @@ class AtomicFetchTests(unittest.TestCase):
         self.assertEqual([destination], list(Path(self.output_dir.name).iterdir()))
 
     def test_validation_failure_does_not_replace_existing_file(self):
-        destination = Path(self.output_dir.name) / "nasa_contracts_2026.csv"
+        destination = Path(self.output_dir.name) / "nasa_awards_2026.csv"
         destination.write_bytes(b"existing complete data\n")
         invalid_response = make_http_response(
             make_export_response(
@@ -701,7 +701,7 @@ class AtomicFetchTests(unittest.TestCase):
         with mock.patch.object(fetcher.session, "post", side_effect=responses):
             fetcher.fetch_and_save_data()
 
-        destination = Path(self.output_dir.name) / "nasa_contracts_2026.csv"
+        destination = Path(self.output_dir.name) / "nasa_awards_2026.csv"
         with destination.open(newline="", encoding="utf-8") as csvfile:
             rows = list(csv.reader(csvfile))
 

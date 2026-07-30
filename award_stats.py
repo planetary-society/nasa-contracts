@@ -46,6 +46,35 @@ AWARD_CATEGORIES = {
     },
 }
 
+# FY2005-FY2008 put contractor indicators before the award descriptor in the
+# same field. These are the source's unambiguous contract and assistance types;
+# values such as Other, Intragovernmental, and Space Act Agreement stay Other.
+LEGACY_AWARD_CATEGORIES = {
+    "contracts": {
+        "BPA Call",
+        "Combination",
+        "Cost No Fee",
+        "Cost Plus Award Fee",
+        "Cost Plus Fixed Fee",
+        "Cost Plus Incentive Fee",
+        "Cost Sharing",
+        "Firm Fixed Price",
+        "Fixed Price Award Fee",
+        "Fixed Price Incentive",
+        "Fixed Price Level of Effort",
+        "Fixed Price Redetermination",
+        "Fixed Price with Economic Price Adjustment",
+        "Labor Hours",
+        "Purchase Order",
+        "Time and Materials",
+    },
+    "grants": {
+        "Cooperative Agreement",
+        "Grant For Research",
+        "Training Grant",
+    },
+}
+
 # Month names for fiscal year (Oct = 1, Sep = 12)
 FISCAL_MONTHS = [
     "October",
@@ -117,7 +146,10 @@ def resolve_export_path(export, fiscal_years: List[int]) -> Optional[Path]:
     return Path(export)
 
 
-def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
+def add_derived_columns(
+    df: pd.DataFrame,
+    source_fiscal_year: Optional[int] = None,
+) -> pd.DataFrame:
     """
     Add fiscal year, fiscal month, dollar, and award category columns.
 
@@ -139,7 +171,8 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     # A fiscal year holds tens of thousands of rows but only a few dozen
     # distinct award types, so categorize each distinct value once.
     categories = {
-        value: get_award_category(value) for value in df["Award Type"].unique()
+        value: get_award_category(value, source_fiscal_year)
+        for value in df["Award Type"].unique()
     }
     df["Category"] = df["Award Type"].map(categories)
 
@@ -157,12 +190,17 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_award_category(award_type: str) -> str:
+def get_award_category(
+    award_type: str,
+    fiscal_year: Optional[int] = None,
+) -> str:
     """
     Extract and categorize award type.
 
     Args:
         award_type: Full award type string from CSV
+        fiscal_year: Source file's fiscal year, used to interpret the legacy
+            compound field
 
     Returns:
         Top-level category name
@@ -170,10 +208,15 @@ def get_award_category(award_type: str) -> str:
     if not award_type or pd.isna(award_type):
         return "Unknown"
 
-    # Split by comma and take first value
-    first_part = str(award_type).split(",")[0].strip()
+    if fiscal_year is not None and fiscal_year <= 2008:
+        descriptor = str(award_type).rsplit(",", 1)[-1].strip()
+        for category_name, descriptions in LEGACY_AWARD_CATEGORIES.items():
+            if descriptor in descriptions:
+                return category_name.capitalize()
+        return "Other"
 
-    # Check each category mapping
+    # Modern exports put the award vehicle before the first comma.
+    first_part = str(award_type).split(",", 1)[0].strip()
     for category_name, mappings in AWARD_CATEGORIES.items():
         for code, description in mappings.items():
             if first_part == code or first_part == description:
@@ -365,7 +408,10 @@ def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> Dict
     print(f"Fiscal Year {year} Statistics")
     print(f"{'=' * 60}")
 
-    df = add_derived_columns(pd.read_csv(csv_file, dtype=str, usecols=STATS_COLUMNS))
+    df = add_derived_columns(
+        pd.read_csv(csv_file, dtype=str, usecols=STATS_COLUMNS),
+        source_fiscal_year=year,
+    )
 
     # Filter for this fiscal year
     df_fy = df[df["Fiscal_Year"] == year]
@@ -380,11 +426,17 @@ def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> Dict
     summary = summarize_new_awards(new_awards)
 
     uncategorized = (new_awards["Category"] == "Other").mean() if len(new_awards) else 0
-    if uncategorized > 0.5:
+    if uncategorized and year <= 2008:
         print(
-            f"\nWarning: {uncategorized:.0%} of FY{year} new awards have an Award "
-            "Type this script cannot categorize (FY2005-FY2008 exports omit the "
-            "award vehicle), so the category table below understates both totals."
+            f"\nWarning: {uncategorized:.0%} of FY{year} new awards use a legacy "
+            "type that cannot be classified as a contract or grant. They remain "
+            "Other and are excluded from exported contract/grant columns."
+        )
+    elif uncategorized > 0.5:
+        print(
+            f"\nWarning: {uncategorized:.0%} of FY{year} new awards cannot be "
+            "classified as a contract or grant. They remain Other and are "
+            "excluded from exported contract/grant columns."
         )
 
     # Table 1: Obligations by month

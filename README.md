@@ -136,7 +136,7 @@ Use `--export` without a path to retain the generated `new_awards_{minimum_year}
 .venv/bin/python award_stats.py --fys 2026 2025 2024 --export local_dir/output_name.csv
 ```
 
-FY2005–FY2008 exports do not reliably identify the award vehicle, so new awards may be reported as `Other` rather than as contracts or grants. The overall monthly obligation table is unaffected.
+FY2005–FY2008 combine contractor indicators and a trailing award descriptor in the `Award Type` field. The script recognizes unambiguous legacy contract and grant descriptors. Ambiguous types such as `Other`, `Intragovernmental`, and `Space Act Agreement` remain `Other` and are excluded from the exported contract/grant columns. The overall monthly obligation table is unaffected.
 
 ## Tests
 

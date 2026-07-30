@@ -11,6 +11,87 @@ import award_stats
 
 
 class AwardStatsTests(unittest.TestCase):
+    def test_legacy_award_types_use_trailing_descriptor(self):
+        with tempfile.TemporaryDirectory() as data_dir_name:
+            csv_path = Path(data_dir_name) / "nasa_awards_2005.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=award_stats.STATS_COLUMNS)
+                writer.writeheader()
+                writer.writerows(
+                    [
+                        {
+                            "Award Date": "10/01/2004",
+                            "Obligations": "100",
+                            "Contract/Mod Number": (
+                                "CONTRACT-1 Modification 0 (Base Record)"
+                            ),
+                            "Award Type": "Small Business,, Firm Fixed Price",
+                        },
+                        {
+                            "Award Date": "10/02/2004",
+                            "Obligations": "200",
+                            "Contract/Mod Number": (
+                                "GRANT-1 Modification 0 (Base Record)"
+                            ),
+                            "Award Type": (
+                                "Educational Institution,, Grant For Research"
+                            ),
+                        },
+                        {
+                            "Award Date": "10/03/2004",
+                            "Obligations": "300",
+                            "Contract/Mod Number": (
+                                "OTHER-1 Modification 0 (Base Record)"
+                            ),
+                            "Award Type": "[No Vendor Indicators Found], Other",
+                        },
+                        {
+                            "Award Date": "10/04/2004",
+                            "Obligations": "400",
+                            "Contract/Mod Number": (
+                                "CONTRACT-2 Modification 0 (Base Record)"
+                            ),
+                            "Award Type": (
+                                "[No Vendor Indicators Found], "
+                                "Fixed Price Redetermination"
+                            ),
+                        },
+                    ]
+                )
+
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                export = award_stats.process_fiscal_year(
+                    2005,
+                    Path(data_dir_name),
+                    export=True,
+                )
+
+        self.assertEqual(2, export["October"]["contract_count"])
+        self.assertEqual(500, export["October"]["contract_value"])
+        self.assertEqual(1, export["October"]["grant_count"])
+        self.assertEqual(200, export["October"]["grant_value"])
+        self.assertIn(
+            "remain Other and are excluded from exported contract/grant columns",
+            output.getvalue(),
+        )
+
+    def test_modern_award_types_still_use_leading_vehicle(self):
+        self.assertEqual(
+            "Contracts",
+            award_stats.get_award_category(
+                "Delivery Order, Firm Fixed Price",
+                fiscal_year=2009,
+            ),
+        )
+        self.assertEqual(
+            "Other",
+            award_stats.get_award_category(
+                "Other, Firm Fixed Price",
+                fiscal_year=2009,
+            ),
+        )
+
     def test_missing_file_warning_uses_awards_filename(self):
         with tempfile.TemporaryDirectory() as data_dir_name:
             output = io.StringIO()

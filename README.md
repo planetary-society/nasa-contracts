@@ -6,7 +6,7 @@ This repository contains fiscal-year data collected from [NASA's Procurement Dat
 
 Year-by-year award-action data for FY2005 through the current fiscal year is available in the `data/` subdirectory.
 
-Each file is named `nasa_contracts_{YYYY}.csv`, where `YYYY` is the four-digit fiscal year. An award appears in a fiscal year only when it was created or modified during that year. An award may remain active without appearing in a later file if it was not modified.
+Each file is named `nasa_awards_{YYYY}.csv`, where `YYYY` is the four-digit fiscal year. An award appears in a fiscal year only when it was created or modified during that year. An award may remain active without appearing in a later file if it was not modified.
 
 ## Data Freshness
 

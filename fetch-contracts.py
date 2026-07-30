@@ -125,7 +125,7 @@ class DataValidationError(RuntimeError):
 class Config:
     """Configuration for NASA data retrieval and CSV export."""
 
-    output_base_filename: str = "nasa_contracts"
+    output_base_filename: str = "nasa_awards"
     output_dir: str = "data"
     fiscal_years: List[int] = field(default_factory=list)
     targets: List[QueryTarget] = field(default_factory=lambda: list(DEFAULT_TARGETS))

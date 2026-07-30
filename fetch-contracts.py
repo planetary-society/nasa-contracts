@@ -109,7 +109,7 @@ MODERN_SOURCE_HEADER = (
 def source_header_for_year(year: int) -> Tuple[str, ...]:
     if year < 2005:
         raise ValueError("NPDV contract exports are supported from FY2005 onward")
-    return LEGACY_SOURCE_HEADER if 2005 <= year <= 2008 else MODERN_SOURCE_HEADER
+    return LEGACY_SOURCE_HEADER if year <= 2008 else MODERN_SOURCE_HEADER
 
 
 class DataValidationError(RuntimeError):
@@ -123,12 +123,10 @@ class Config:
     output_base_filename: str = "nasa_contracts"
     output_dir: str = "data"
     fiscal_years: List[int] = field(default_factory=list)
-    targets: List[QueryTarget] = field(default_factory=list)
+    targets: List[QueryTarget] = field(default_factory=lambda: list(DEFAULT_TARGETS))
     url: str = "https://prod.nais.nasa.gov/cgibin/npdv/usmap05.cgi"
 
     def __post_init__(self) -> None:
-        if not self.targets:
-            self.targets = list(DEFAULT_TARGETS)
         os.makedirs(self.output_dir, exist_ok=True)
 
 
@@ -137,6 +135,8 @@ class NASADataFetcher:
 
     def __init__(self, config: Config) -> None:
         self.config = config
+        # One session so the 52 targets of each fiscal year reuse a connection.
+        self.session = requests.Session()
 
     def _build_post_data(self, year: int, target: QueryTarget) -> dict:
         """
@@ -147,18 +147,18 @@ class NASADataFetcher:
         end_date = f"{year}-09-30"
 
         return {
-            'bus_cat': '' if target.international else 'ALL',
-            'fy': fy_str,
-            'recovery': '' if target.international else '0',
-            'v_center': 'ALL',
-            'v_database': fy_str.replace(" ", ""),
-            'v_code': target.request_code,
-            'v_district': '' if target.international else 'ALL',
-            'v_end_date': end_date,
-            'v_start_date': start_date,
-            'v_state': target.request_state,
-            'v_state2': target.request_state2,
-            'action': 'Export to Excel'
+            "bus_cat": "" if target.international else "ALL",
+            "fy": fy_str,
+            "recovery": "" if target.international else "0",
+            "v_center": "ALL",
+            "v_database": fy_str.replace(" ", ""),
+            "v_code": target.request_code,
+            "v_district": "" if target.international else "ALL",
+            "v_end_date": end_date,
+            "v_start_date": start_date,
+            "v_state": target.request_state,
+            "v_state2": target.request_state2,
+            "action": "Export to Excel",
         }
 
     def _determine_district(
@@ -170,14 +170,16 @@ class NASADataFetcher:
         if target.international:
             return ""
 
+        # Congressional districts are two-digit numbers: 00 for an at-large
+        # jurisdiction through 98 for the District of Columbia's delegate seat.
         match = re.search(
-            r"\(District\s+(\d{2}|NA)\)\s*$",
+            r"\(District\s+([0-8]\d|9[0-8])\)\s*$",
             place_of_performance,
             flags=re.IGNORECASE,
         )
         if not match:
             return ""
-        return f"{target.output_state}-{match.group(1).upper()}"
+        return f"{target.output_state}-{match.group(1)}"
 
     @staticmethod
     def _unwrap_source_field(value: str) -> str:
@@ -199,9 +201,7 @@ class NASADataFetcher:
             flags=re.IGNORECASE,
         )
         if not count_match:
-            raise DataValidationError(
-                f"Missing record count for {target.output_state}"
-            )
+            raise DataValidationError(f"Missing record count for {target.output_state}")
         reported_count = int(count_match.group(1).replace(",", ""))
 
         expected_header = source_header_for_year(year)
@@ -209,21 +209,23 @@ class NASADataFetcher:
             line[:-1] if line.endswith("\r") else line
             for line in response_text.split("\n")
         ]
-        header_index = None
-        for index, line in enumerate(lines):
+        for header_index, line in enumerate(lines):
             fields = tuple(line.split("\t"))
-            if fields[:2] == expected_header[:2]:
-                if fields != expected_header:
-                    raise DataValidationError(
-                        f"Unexpected FY{year} schema for {target.output_state}"
-                    )
-                header_index = index
-                break
-
-        if header_index is None:
+            if fields[:2] != expected_header[:2]:
+                continue
+            if fields != expected_header:
+                raise DataValidationError(
+                    f"Unexpected FY{year} schema for {target.output_state}"
+                )
+            break
+        else:
             raise DataValidationError(
                 f"Missing FY{year} export header for {target.output_state}"
             )
+
+        place_index = expected_header.index("Place of Performance")
+        award_type_index = expected_header.index("Award Type")
+        indicator_index = expected_header.index("Contractor Type - Indicators")
 
         parsed_rows: List[List[str]] = []
         for line_number, line in enumerate(
@@ -239,8 +241,13 @@ class NASADataFetcher:
                 )
 
             fields = [self._unwrap_source_field(value) for value in fields]
-            fields[6], fields[7] = fields[7], fields[6]
-            district = self._determine_district(target, fields[3])
+            # The export emits these two columns' values in the opposite order
+            # from its own header row.
+            fields[award_type_index], fields[indicator_index] = (
+                fields[indicator_index],
+                fields[award_type_index],
+            )
+            district = self._determine_district(target, fields[place_index])
             parsed_rows.append([target.output_state, district] + fields)
 
         if len(parsed_rows) != reported_count:
@@ -250,12 +257,26 @@ class NASADataFetcher:
             )
         return parsed_rows
 
+    def fetch_target(self, year: int, target: QueryTarget) -> List[List[str]]:
+        """Request one target's export for one fiscal year and validate its rows."""
+        response = self.session.post(
+            self.config.url,
+            data=self._build_post_data(year, target),
+            timeout=30,
+        )
+        response.raise_for_status()
+        return self._parse_response(year, target, response.content.decode("ISO-8859-1"))
+
     def fetch_and_save_data(self) -> None:
         """Fetch every configured target and atomically publish each fiscal year."""
-        for year in self.config.fiscal_years:
+        # Resolve every schema first so an unsupported year fails before any
+        # file is written.
+        headers = {
+            year: source_header_for_year(year) for year in self.config.fiscal_years
+        }
+        for year, expected_header in headers.items():
             filename = f"{self.config.output_base_filename}_{year}.csv"
             full_path = os.path.join(self.config.output_dir, filename)
-            expected_header = source_header_for_year(year)
             temporary = tempfile.NamedTemporaryFile(
                 mode="w",
                 newline="",
@@ -277,14 +298,7 @@ class NASADataFetcher:
                             target.output_state,
                             year,
                         )
-                        response = requests.post(
-                            self.config.url,
-                            data=self._build_post_data(year, target),
-                            timeout=30,
-                        )
-                        response.raise_for_status()
-                        response_text = response.content.decode("ISO-8859-1")
-                        rows = self._parse_response(year, target, response_text)
+                        rows = self.fetch_target(year, target)
                         writer.writerows(rows)
                         logging.info(
                             "Finished %s for fiscal year %s. Found %d records",
@@ -314,17 +328,19 @@ def parse_args() -> argparse.Namespace:
         description="Fetch NASA contract data for the specified fiscal year(s) and export to CSV."
     )
     parser.add_argument(
-        "-fy", "--fiscal-year",
+        "-fy",
+        "--fiscal-year",
         type=int,
         nargs="+",
         required=True,
-        help="One or more 4-digit fiscal years (e.g., 2025)"
+        help="One or more 4-digit fiscal years (e.g., 2025)",
     )
     parser.add_argument(
-        "-dir", "--output-dir",
+        "-dir",
+        "--output-dir",
         type=str,
         default="data",
-        help="Output directory for CSV file (default: data)"
+        help="Output directory for CSV file (default: data)",
     )
     return parser.parse_args()
 
@@ -338,7 +354,6 @@ def main() -> None:
 
     # Construct configuration.
     config = Config(
-        output_base_filename="nasa_contracts",
         output_dir=args.output_dir,
         fiscal_years=args.fiscal_year,
     )

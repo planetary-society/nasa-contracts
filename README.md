@@ -161,6 +161,7 @@ NPDV_LIVE_TESTS=1 python -m unittest discover -s tests -v
 ## Known Limitations
 
 - **Purchase Order Threshold**: NPDV includes all contracts, assistance awards, cooperative agreements, and space act agreements, but only those purchase orders with a value greater than $25,000. Smaller purchase orders are absent from the dataset entirely
+- **Indefinite-Delivery Vehicles**: Parent indefinite-delivery vehicle (IDV) contracts are not included in this dataset. Task orders, delivery orders, and other orders placed under those vehicles are included
 - **Missing State Data**: NPDV's geographical query excludes records without a Place of Performance state
 - **Upstream Coverage**: NPDV notes that intragovernmental awards are not comprehensively captured beginning in FY2007
 - **Subcontract Exclusion**: The dataset does not include subcontract data. This is particularly relevant for JPL-related contracts, as JPL is operated by Caltech under contract, meaning their contracts are not directly reported in this system

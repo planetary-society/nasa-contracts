@@ -10,39 +10,32 @@ Each file is named `nasa_awards_{YYYY}.csv`, where `YYYY` is the four-digit fisc
 
 | Fiscal year | Source file |
 | --- | --- |
-| 2005 | [`nasa_awards_2005.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2005.csv) |
-| 2006 | [`nasa_awards_2006.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2006.csv) |
-| 2007 | [`nasa_awards_2007.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2007.csv) |
-| 2008 | [`nasa_awards_2008.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2008.csv) |
-| 2009 | [`nasa_awards_2009.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2009.csv) |
-| 2010 | [`nasa_awards_2010.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2010.csv) |
-| 2011 | [`nasa_awards_2011.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2011.csv) |
-| 2012 | [`nasa_awards_2012.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2012.csv) |
-| 2013 | [`nasa_awards_2013.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2013.csv) |
-| 2014 | [`nasa_awards_2014.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2014.csv) |
-| 2015 | [`nasa_awards_2015.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2015.csv) |
-| 2016 | [`nasa_awards_2016.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2016.csv) |
-| 2017 | [`nasa_awards_2017.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2017.csv) |
-| 2018 | [`nasa_awards_2018.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2018.csv) |
-| 2019 | [`nasa_awards_2019.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2019.csv) |
-| 2020 | [`nasa_awards_2020.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2020.csv) |
-| 2021 | [`nasa_awards_2021.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2021.csv) |
-| 2022 | [`nasa_awards_2022.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2022.csv) |
-| 2023 | [`nasa_awards_2023.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2023.csv) |
-| 2024 | [`nasa_awards_2024.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2024.csv) |
-| 2025 | [`nasa_awards_2025.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2025.csv) |
-| 2026 | [`nasa_awards_2026.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2026.csv) |
+| 2005 | [`nasa_awards_2005.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2005.csv) |
+| 2006 | [`nasa_awards_2006.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2006.csv) |
+| 2007 | [`nasa_awards_2007.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2007.csv) |
+| 2008 | [`nasa_awards_2008.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2008.csv) |
+| 2009 | [`nasa_awards_2009.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2009.csv) |
+| 2010 | [`nasa_awards_2010.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2010.csv) |
+| 2011 | [`nasa_awards_2011.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2011.csv) |
+| 2012 | [`nasa_awards_2012.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2012.csv) |
+| 2013 | [`nasa_awards_2013.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2013.csv) |
+| 2014 | [`nasa_awards_2014.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2014.csv) |
+| 2015 | [`nasa_awards_2015.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2015.csv) |
+| 2016 | [`nasa_awards_2016.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2016.csv) |
+| 2017 | [`nasa_awards_2017.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2017.csv) |
+| 2018 | [`nasa_awards_2018.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2018.csv) |
+| 2019 | [`nasa_awards_2019.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2019.csv) |
+| 2020 | [`nasa_awards_2020.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2020.csv) |
+| 2021 | [`nasa_awards_2021.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2021.csv) |
+| 2022 | [`nasa_awards_2022.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2022.csv) |
+| 2023 | [`nasa_awards_2023.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2023.csv) |
+| 2024 | [`nasa_awards_2024.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2024.csv) |
+| 2025 | [`nasa_awards_2025.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2025.csv) |
+| 2026 | [`nasa_awards_2026.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2026.csv) |
 
 ## Data Freshness
 
-The current and two preceding fiscal years are refreshed daily by GitHub Actions. NPDV publishes the current fiscal year only through the previous month end, so the newest file lags by up to one month no matter how often it is refreshed.
-
-## Output Schemas
-
-NPDV exposes two historical export schemas, which are retained rather than artificially normalized:
-
-- FY2005–FY2008: 16 output columns, including the derived `State` and `District` columns; no `TAS Code`.
-- FY2009 onward: 17 output columns, including `TAS Code`.
+The current and two preceding fiscal years are refreshed daily to capture any updates made to awards in the NPDV.
 
 ### Output Data Column Descriptions
 
@@ -59,20 +52,20 @@ NPDV exposes two historical export schemas, which are retained rather than artif
 - **Obligations**: Funding obligated during the file's fiscal year, as a whole-dollar integer with no currency symbol or thousands separators (for example, `0`, `35000`, or `-16915` for a deobligation). This is not the cumulative total obligated since award
 - **Change in Award Value**: Change this action makes to the total amount agreed upon, including all deliverables and exercised options, in the same whole-dollar integer format. Options that have not been exercised in writing are excluded, so this column is not a measure of contract ceiling
 - **NAICS Code**: North American Industry Classification System code
-- **TAS Code**: Treasury Account Symbol identifying the funding source — a two-character agency identifier, a four-character main account code, and an optional three-character subaccount code (FY2009 onward only). The fiscal year of the funds is not encoded in the TAS
+- **TAS Code**: Treasury Account Symbol identifying the funding source — a two-character agency identifier, a four-character main account code, and an optional three-character subaccount code (FY2009 onward only). The fiscal year of the funds is not encoded in the TAS.
 - **Solicitation ID**: Reference number for the original solicitation
 - **Solicitation POC**: Point of contact for the solicitation
 - **Description**: Brief description of the contracted work or modification
 
 ## Usage
 
-Basic usage with a single fiscal year:
+You can run this extraction script yourself on any given FY:
 
 ```bash
 .venv/bin/python fetch-contracts.py -fy 2025
 ```
 
-Fetch data for multiple fiscal years:
+or fetch data for multiple fiscal years:
 
 ```bash
 .venv/bin/python fetch-contracts.py -fy 2024 2025

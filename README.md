@@ -8,6 +8,31 @@ Year-by-year award-action data for FY2005 through the current fiscal year is ava
 
 Each file is named `nasa_awards_{YYYY}.csv`, where `YYYY` is the four-digit fiscal year. An award appears in a fiscal year only when it was created or modified during that year. An award may remain active without appearing in a later file if it was not modified.
 
+| Fiscal year | Source file |
+| --- | --- |
+| 2005 | [`nasa_awards_2005.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2005.csv) |
+| 2006 | [`nasa_awards_2006.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2006.csv) |
+| 2007 | [`nasa_awards_2007.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2007.csv) |
+| 2008 | [`nasa_awards_2008.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2008.csv) |
+| 2009 | [`nasa_awards_2009.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2009.csv) |
+| 2010 | [`nasa_awards_2010.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2010.csv) |
+| 2011 | [`nasa_awards_2011.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2011.csv) |
+| 2012 | [`nasa_awards_2012.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2012.csv) |
+| 2013 | [`nasa_awards_2013.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2013.csv) |
+| 2014 | [`nasa_awards_2014.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2014.csv) |
+| 2015 | [`nasa_awards_2015.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2015.csv) |
+| 2016 | [`nasa_awards_2016.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2016.csv) |
+| 2017 | [`nasa_awards_2017.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2017.csv) |
+| 2018 | [`nasa_awards_2018.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2018.csv) |
+| 2019 | [`nasa_awards_2019.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2019.csv) |
+| 2020 | [`nasa_awards_2020.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2020.csv) |
+| 2021 | [`nasa_awards_2021.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2021.csv) |
+| 2022 | [`nasa_awards_2022.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2022.csv) |
+| 2023 | [`nasa_awards_2023.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2023.csv) |
+| 2024 | [`nasa_awards_2024.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2024.csv) |
+| 2025 | [`nasa_awards_2025.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2025.csv) |
+| 2026 | [`nasa_awards_2026.csv`](https://github.com/planetary-society/nasa-contracts/blob/master/data/nasa_awards_2026.csv) |
+
 ## Data Freshness
 
 The current and two preceding fiscal years are refreshed daily by GitHub Actions. NPDV publishes the current fiscal year only through the previous month end, so the newest file lags by up to one month no matter how often it is refreshed.

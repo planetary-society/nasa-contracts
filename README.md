@@ -19,19 +19,17 @@ NPDV exposes two historical export schemas, which are retained rather than artif
 - FY2005–FY2008: 16 output columns, including the derived `State` and `District` columns; no `TAS Code`.
 - FY2009 onward: 17 output columns, including `TAS Code`.
 
-All source field values preserve NPDV's capitalization, punctuation, embedded quotes, and leading or trailing whitespace after decoding the export's transport-level quoting. The scraper does not sentence-case descriptions, title-case contractor names, or apply the acronym reference file.
-
 ### Output Data Column Descriptions
 
 - **State**: Two-letter domestic jurisdiction code (for example, `CA` or `DC`), or `International` for NPDV's Outside U.S. export
-- **District**: Source-reported congressional district prefixed with the state code (for example, `CA-12`, `MT-02`, `DC-98`, or `TX-NA`); blank when NPDV provides no district or for International records
+- **District**: Source-reported congressional district prefixed with the state code, always as a two-digit number from `00` to `98` — `CA-12` for a numbered district, `MT-00` for an at-large jurisdiction, `DC-98` for the District of Columbia's delegate seat; blank when NPDV reports no district and for International records
 - **Contractor**: Name of the contracting organization
 - **Contract/Mod Number**: Unique identifier for the contract or modification
 - **NASA Center**: NASA center or facility managing the contract
 - **Place of Performance**: Location where the contracted work is performed
 - **Award Date**: Date when the contract or modification was awarded
 - **Completion Date**: Expected completion date for the contract
-- **Award Type**: Type of contract award (e.g., Delivery Order, Purchase Order)
+- **Award Type**: Type of award (e.g., Delivery Order, Purchase Order)
 - **Contractor Type - Indicators**: Business size and socioeconomic indicators
 - **Obligations**: Current fiscal year funding obligated
 - **Change in Award Value**: Change in total contract value from this modification
@@ -40,19 +38,6 @@ All source field values preserve NPDV's capitalization, punctuation, embedded qu
 - **Solicitation ID**: Reference number for the original solicitation
 - **Solicitation POC**: Point of contact for the solicitation
 - **Description**: Brief description of the contracted work or modification
-
-
-## Installation
-
-No API key is required.
-
-1. Clone this repository.
-2. Create or activate a virtual environment.
-3. Install the dependencies:
-
-```bash
-.venv/bin/pip install -r requirements.txt
-```
 
 ## Usage
 
@@ -74,10 +59,24 @@ Specify a custom output directory (default is `./data`):
 .venv/bin/python fetch-contracts.py -fy 2025 -dir /path/to/output
 ```
 
-Run the test suite:
+## Tests
+
+Run the default suite, which parses fixtures transcribed from real NPDV exports and checks the committed CSVs against the parser's guarantees:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
+```
+
+The committed-data checks scan one file per source schema by default. To scan every fiscal year in `data/` instead (roughly 13 seconds for all 795,000 rows):
+
+```bash
+NPDV_FULL_DATA_TESTS=1 .python -m unittest discover -s tests -v
+```
+
+Integration tests that query NPDV are skipped unless explicitly enabled. They issue four requests for Vermont and Outside U.S., NPDV's two smallest exports, plus one deliberately malformed query:
+
+```bash
+NPDV_LIVE_TESTS=1 python -m unittest discover -s tests -v
 ```
 
 ## Known Limitations
@@ -88,10 +87,6 @@ Run the test suite:
 - **District Assignment**: District values are extracted from NPDV's Place of Performance text and inherit any upstream omissions or coding errors
 - **Legacy Award Types**: Some FY2005–FY2008 Award Type values contain compound, comma-separated source text; these strings are preserved verbatim rather than normalized for downstream category matching
 - **Data Source Stability**: The script relies on NASA's NPDV database interface, which may change without notice
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

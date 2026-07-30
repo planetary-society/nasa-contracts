@@ -33,9 +33,36 @@ Each file is named `nasa_awards_{YYYY}.csv`, where `YYYY` is the four-digit fisc
 | 2025 | [`nasa_awards_2025.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2025.csv) |
 | 2026 | [`nasa_awards_2026.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_awards_2026.csv) |
 
+### New award statistics
+
+Annual summary files for FY2009 through the current fiscal year count new contract and grant awards by fiscal month and total their initial obligations. A new award is identified by the `Modification 0 (Base Record)` suffix in `Contract/Mod Number`; later modifications are not included in these statistics. Each file also includes a fiscal-year total row.
+
+The value columns contain whole-dollar integers. They measure the obligations recorded on each award's base action, not all obligations recorded during the fiscal year. Use the full award listings above to analyze subsequent modifications, deobligations, or total award-action activity.
+
+| Fiscal year | New award statistics |
+| --- | --- |
+| 2009 | [`nasa_new_award_stats_2009.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2009.csv) |
+| 2010 | [`nasa_new_award_stats_2010.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2010.csv) |
+| 2011 | [`nasa_new_award_stats_2011.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2011.csv) |
+| 2012 | [`nasa_new_award_stats_2012.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2012.csv) |
+| 2013 | [`nasa_new_award_stats_2013.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2013.csv) |
+| 2014 | [`nasa_new_award_stats_2014.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2014.csv) |
+| 2015 | [`nasa_new_award_stats_2015.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2015.csv) |
+| 2016 | [`nasa_new_award_stats_2016.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2016.csv) |
+| 2017 | [`nasa_new_award_stats_2017.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2017.csv) |
+| 2018 | [`nasa_new_award_stats_2018.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2018.csv) |
+| 2019 | [`nasa_new_award_stats_2019.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2019.csv) |
+| 2020 | [`nasa_new_award_stats_2020.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2020.csv) |
+| 2021 | [`nasa_new_award_stats_2021.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2021.csv) |
+| 2022 | [`nasa_new_award_stats_2022.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2022.csv) |
+| 2023 | [`nasa_new_award_stats_2023.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2023.csv) |
+| 2024 | [`nasa_new_award_stats_2024.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2024.csv) |
+| 2025 | [`nasa_new_award_stats_2025.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2025.csv) |
+| 2026 | [`nasa_new_award_stats_2026.csv`](https://github.com/planetary-society/nasa-contracts/raw/refs/heads/master/data/nasa_new_award_stats_2026.csv) |
+
 ## Data Freshness
 
-The current and two preceding fiscal years are refreshed daily to capture any updates made to awards in the NPDV.
+The current and two preceding fiscal-year award listings are refreshed daily to capture any updates made to awards in the NPDV. The current fiscal year's new award statistics are regenerated after each daily refresh.
 
 ### Output Data Column Descriptions
 

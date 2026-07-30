@@ -7,14 +7,16 @@ For each given fiscal year, this script will:
   2. Count new awards (Modification 0) by category by month
 
 Usage:
-  python contract_stats.py --fys 2025 2024 2023
+  python award_stats.py --fys 2025 2024 2023
+  python award_stats.py --fys 2025 2024 2023 --export
+  python award_stats.py --fys 2025 2024 2023 --export reports/awards.csv
 """
 
 import argparse
 from pathlib import Path
 import pandas as pd
 from tabulate import tabulate
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Award type category mapping
 AWARD_CATEGORIES = {
@@ -66,6 +68,7 @@ BASE_RECORD_SUFFIX = "Modification 0 (Base Record)"
 
 # Columns the statistics need; Description dominates file size and is unused.
 STATS_COLUMNS = ["Award Date", "Obligations", "Contract/Mod Number", "Award Type"]
+AUTO_EXPORT = object()
 
 
 def dollars(value) -> str:
@@ -93,9 +96,25 @@ def parse_arguments() -> argparse.Namespace:
         help="Fiscal years to process (e.g., --fys 2025 2024 2023)",
     )
     parser.add_argument(
-        "--export", action="store_true", help="Export results as CSV files"
+        "--export",
+        nargs="?",
+        const=AUTO_EXPORT,
+        type=Path,
+        metavar="OUTPUT_CSV",
+        help="Export results, optionally to a custom CSV path",
     )
     return parser.parse_args()
+
+
+def resolve_export_path(export, fiscal_years: List[int]) -> Optional[Path]:
+    """Resolve the optional export argument to a concrete output path."""
+    if export is None:
+        return None
+    if export is AUTO_EXPORT:
+        return Path(
+            f"new_awards_{min(fiscal_years)}_to_{max(fiscal_years)}.csv"
+        )
+    return Path(export)
 
 
 def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -251,19 +270,29 @@ def get_awards_data_for_year(summary: Dict[str, pd.DataFrame]) -> Dict:
     }
 
 
-def create_combined_awards_csv(all_data: Dict, fiscal_years: List[int]) -> str:
+def create_combined_awards_csv(
+    all_data: Dict,
+    fiscal_years: List[int],
+    output_path: Path,
+) -> Path:
     """
     Create combined CSV file with awards data for all fiscal years.
 
     Args:
         all_data: Dictionary with data for each fiscal year
         fiscal_years: List of fiscal years to include
+        output_path: Destination CSV path
 
     Returns:
-        Filename of exported CSV
+        Path of the exported CSV
     """
     # Sort fiscal years for consistent ordering
-    fiscal_years = sorted(fiscal_years, reverse=True)
+    fiscal_years = sorted(
+        (year for year in fiscal_years if year in all_data),
+        reverse=True,
+    )
+    if not fiscal_years:
+        raise ValueError("no fiscal-year data to export")
 
     # Build rows
     rows = []
@@ -284,14 +313,10 @@ def create_combined_awards_csv(all_data: Dict, fiscal_years: List[int]) -> str:
         [df_export, pd.DataFrame([{"Month": "Total", **totals}])], ignore_index=True
     )
 
-    # Generate filename
-    min_year = min(fiscal_years)
-    max_year = max(fiscal_years)
-    filename = f"new_awards_{min_year}_to_{max_year}.csv"
-
     # Values are whole dollars, so no float formatting is needed
-    df_export.to_csv(filename, index=False)
-    return filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df_export.to_csv(output_path, index=False)
+    return output_path
 
 
 def format_awards_table(summary: Dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -399,21 +424,30 @@ def main():
 
     # Sort fiscal years in descending order
     fiscal_years = sorted(args.fys, reverse=True)
+    output_path = resolve_export_path(args.export, fiscal_years)
 
     print(f"Processing fiscal years: {', '.join(map(str, fiscal_years))}")
-    if args.export:
-        print("CSV export enabled - files will be saved to current directory")
+    if output_path is not None:
+        print(f"CSV export enabled - output will be saved to {output_path}")
 
     # Collect data from all fiscal years
     all_awards_data = {}
     for fy in fiscal_years:
-        fy_data = process_fiscal_year(fy, data_dir, args.export)
+        fy_data = process_fiscal_year(fy, data_dir, output_path is not None)
         if fy_data:
             all_awards_data[fy] = fy_data
 
     # Export combined CSV if requested
-    if args.export and all_awards_data:
-        filename = create_combined_awards_csv(all_awards_data, fiscal_years)
+    if output_path is not None:
+        if not all_awards_data:
+            raise SystemExit(
+                "No fiscal-year data available; export was not created."
+            )
+        filename = create_combined_awards_csv(
+            all_awards_data,
+            fiscal_years,
+            output_path,
+        )
         print(f"\nExported combined awards data to: {filename}")
 
     print(f"\n{'=' * 60}")

@@ -77,6 +77,40 @@ Specify a custom output directory (default is `./data`):
 .venv/bin/python fetch-contracts.py -fy 2025 -dir /path/to/output
 ```
 
+### Award statistics
+
+[`award_stats.py`](award_stats.py) summarizes one or more annual files from the `data/` directory. For each fiscal year, it prints:
+
+- total obligations by fiscal month, including a running annual total
+- counts of new awards by category and fiscal month
+- initial obligation values for those new awards
+
+The script identifies a new award by the `Modification 0 (Base Record)` suffix in `Contract/Mod Number`. Printed dollar values are abbreviated in millions; source data and exported values remain whole-dollar integers.
+
+Analyze one fiscal year:
+
+```bash
+.venv/bin/python award_stats.py --fys 2026
+```
+
+Analyze multiple fiscal years:
+
+```bash
+.venv/bin/python award_stats.py --fys 2026 2025 2024
+```
+
+Use `--export` without a path to retain the generated `new_awards_{minimum_year}_to_{maximum_year}.csv` filename, or pass a custom output path. Missing parent directories are created automatically. The export contains monthly contract and grant counts and initial obligation values for fiscal years that were successfully processed:
+
+```bash
+.venv/bin/python award_stats.py --fys 2026 2025 2024 --export
+```
+
+```bash
+.venv/bin/python award_stats.py --fys 2026 2025 2024 --export local_dir/output_name.csv
+```
+
+FY2005–FY2008 exports do not reliably identify the award vehicle, so new awards may be reported as `Other` rather than as contracts or grants. The overall monthly obligation table is unaffected.
+
 ## Tests
 
 Run the default suite, which parses fixtures transcribed from real NPDV exports and checks the committed CSVs against the parser's guarantees:

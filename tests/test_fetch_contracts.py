@@ -99,8 +99,8 @@ NPDV_MODERN_OUTPUT_ROW = [
     "09/30/2025",
     "Delivery Order, Firm Fixed Price",
     "Other Than Small Business - Corporate Entity Not Tax Exempt, For Profit Organization",
-    "$-16,915",
-    "$-16,915",
+    "-16915",
+    "-16915",
     "541330",
     "",
     "80MSFC19D0021",
@@ -135,8 +135,8 @@ NPDV_LEGACY_OUTPUT_ROW = [
     "01/31/2005",
     "Small Business,, Grant For Research",
     "Small Business ONLY - ",
-    "$35,000",
-    "$35,000",
+    "35000",
+    "35000",
     "[None Indicated]",
     "N/A",
     "N/A",
@@ -518,6 +518,43 @@ class NPDVSourceFidelityTests(unittest.TestCase):
                     " - ",
                     rows[0][2 + header.index("Contractor Type - Indicators")],
                 )
+
+    def test_currency_columns_become_whole_dollar_integers(self):
+        header = fetch_contracts.MODERN_SOURCE_HEADER
+        obligations = 2 + header.index("Obligations")
+        change = 2 + header.index("Change in Award Value")
+        cases = (
+            ('"$0"', "0"),
+            ('"$250"', "250"),
+            ('"$-16,915"', "-16915"),
+            ('"$1,234,567"', "1234567"),
+        )
+
+        for source_value, expected in cases:
+            with self.subTest(source=source_value):
+                source_row = list(NPDV_MODERN_SOURCE_ROW)
+                source_row[8] = source_row[9] = source_value
+                rows = self.fetcher._parse_response(
+                    2026,
+                    TARGETS["AL"],
+                    make_export_response(header, [source_row]),
+                )
+                self.assertEqual(expected, rows[0][obligations])
+                self.assertEqual(expected, rows[0][change])
+
+    def test_unexpected_currency_value_is_rejected(self):
+        for source_value in ('"1,000"', '"$1,000.50"', '""', '"N/A"'):
+            with self.subTest(source=source_value):
+                source_row = list(NPDV_MODERN_SOURCE_ROW)
+                source_row[8] = source_value
+                with self.assertRaises(fetch_contracts.DataValidationError):
+                    self.fetcher._parse_response(
+                        2026,
+                        TARGETS["AL"],
+                        make_export_response(
+                            fetch_contracts.MODERN_SOURCE_HEADER, [source_row]
+                        ),
+                    )
 
     def test_place_of_performance_without_district_token(self):
         # NPDV reports "UNITED STATES, <ST>" for 3,273 committed rows.

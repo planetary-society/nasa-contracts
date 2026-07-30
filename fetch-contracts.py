@@ -3,7 +3,8 @@
 Fetch NASA Procurement Data View exports for specified fiscal years.
 
 Each fiscal year is written to a separate CSV with derived State and District
-columns. Source field text is otherwise preserved verbatim.
+columns and the two currency columns rewritten as plain whole-dollar integers.
+Source field text is otherwise preserved verbatim.
 """
 
 import argparse
@@ -104,6 +105,10 @@ LEGACY_SOURCE_HEADER = (
 MODERN_SOURCE_HEADER = (
     LEGACY_SOURCE_HEADER[:11] + ("TAS Code",) + LEGACY_SOURCE_HEADER[11:]
 )
+
+# Columns NPDV reports as whole-dollar currency text, e.g. "$0" or "$-16,915".
+CURRENCY_COLUMNS = ("Obligations", "Change in Award Value")
+CURRENCY_PATTERN = re.compile(r"\$(-?[\d,]+)")
 
 
 def source_header_for_year(year: int) -> Tuple[str, ...]:
@@ -226,6 +231,7 @@ class NASADataFetcher:
         place_index = expected_header.index("Place of Performance")
         award_type_index = expected_header.index("Award Type")
         indicator_index = expected_header.index("Contractor Type - Indicators")
+        currency_indices = [expected_header.index(name) for name in CURRENCY_COLUMNS]
 
         parsed_rows: List[List[str]] = []
         for line_number, line in enumerate(
@@ -247,6 +253,16 @@ class NASADataFetcher:
                 fields[indicator_index],
                 fields[award_type_index],
             )
+            for index in currency_indices:
+                match = CURRENCY_PATTERN.fullmatch(fields[index])
+                if not match:
+                    raise DataValidationError(
+                        f"FY{year} {target.output_state} line {line_number} has "
+                        f"unexpected {expected_header[index]} value "
+                        f"{fields[index]!r}"
+                    )
+                fields[index] = match.group(1).replace(",", "")
+
             district = self._determine_district(target, fields[place_index])
             parsed_rows.append([target.output_state, district] + fields)
 

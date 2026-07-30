@@ -17,6 +17,7 @@ from test_fetch_contracts import TARGETS, fetch_contracts
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DISTRICT_PATTERN = re.compile(r"^([0-8]\d|9[0-8])$")
+WHOLE_DOLLARS_PATTERN = re.compile(r"^-?\d+$")
 FULL_SCAN = os.environ.get("NPDV_FULL_DATA_TESTS") == "1"
 
 
@@ -95,6 +96,23 @@ class CommittedDataTests(unittest.TestCase):
                             prefix, _, token = district.partition("-")
                             self.assertEqual(state, prefix)
                             self.assertRegex(token, DISTRICT_PATTERN)
+
+    def test_currency_columns_are_whole_dollar_integers(self):
+        for path in scanned_files():
+            with self.subTest(path=path.name):
+                with path.open(newline="", encoding="utf-8") as csvfile:
+                    reader = csv.reader(csvfile)
+                    header = next(reader)
+                    indices = [
+                        header.index(name) for name in fetch_contracts.CURRENCY_COLUMNS
+                    ]
+                    for line_number, row in enumerate(reader, start=2):
+                        for index in indices:
+                            self.assertRegex(
+                                row[index],
+                                WHOLE_DOLLARS_PATTERN,
+                                f"{path.name} line {line_number} {header[index]}",
+                            )
 
     def test_no_field_carries_transport_control_characters(self):
         # Tabs and newlines inside a field would have broken the tab-delimited

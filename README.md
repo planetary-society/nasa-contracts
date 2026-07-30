@@ -31,8 +31,8 @@ NPDV exposes two historical export schemas, which are retained rather than artif
 - **Completion Date**: Expected completion date for the contract
 - **Award Type**: Type of award (e.g., Delivery Order, Purchase Order)
 - **Contractor Type - Indicators**: Business size and socioeconomic indicators
-- **Obligations**: Current fiscal year funding obligated
-- **Change in Award Value**: Change in total contract value from this modification
+- **Obligations**: Current fiscal year funding obligated, as a whole-dollar integer with no currency symbol or thousands separators (for example, `0`, `35000`, or `-16915` for a deobligation)
+- **Change in Award Value**: Change in total contract value from this modification, in the same whole-dollar integer format
 - **NAICS Code**: North American Industry Classification System code
 - **TAS Code**: Treasury Account Symbol identifying the funding source (FY2009 onward only)
 - **Solicitation ID**: Reference number for the original solicitation

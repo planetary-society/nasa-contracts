@@ -81,7 +81,7 @@ class LiveExportTests(unittest.TestCase):
             for name in ("Award Date", "Completion Date"):
                 self.assertRegex(row[column[name]], r"^\d{2}/\d{2}/\d{4}$")
             for name in ("Obligations", "Change in Award Value"):
-                self.assertRegex(row[column[name]], r"^\$-?[\d,]+$")
+                self.assertRegex(row[column[name]], r"^-?\d+$")
             for value in row:
                 self.assertNotRegex(value, r"[\t\r\n]")
 

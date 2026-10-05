@@ -64,6 +64,8 @@ The value columns contain whole-dollar integers. They measure the obligations re
 
 The current and two preceding fiscal-year award listings are refreshed daily to capture any updates made to awards in the NPDV. The current fiscal year's new award statistics are regenerated after each daily refresh.
 
+At the start of a fiscal year, NPDV may report no records yet. A successfully fetched empty year produces a header-only award CSV and zero counts and values in its new award statistics; these reflect NPDV's reported data at the time of the refresh.
+
 ### Output Data Column Descriptions
 
 - **State**: Two-letter domestic jurisdiction code (for example, `CA` or `DC`), or `International` for NPDV's Outside U.S. export
@@ -152,7 +154,7 @@ The committed-data checks scan one file per source schema by default. To scan ev
 NPDV_FULL_DATA_TESTS=1 .python -m unittest discover -s tests -v
 ```
 
-Integration tests that query NPDV are skipped unless explicitly enabled. They issue four requests for Vermont and Outside U.S., NPDV's two smallest exports, plus one deliberately malformed query:
+Integration tests that query NPDV are skipped unless explicitly enabled. They issue five requests for Vermont and Outside U.S., NPDV's two smallest exports, plus one deliberately malformed query:
 
 ```bash
 NPDV_LIVE_TESTS=1 python -m unittest discover -s tests -v

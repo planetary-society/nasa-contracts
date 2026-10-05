@@ -4,7 +4,7 @@ Skipped unless NPDV_LIVE_TESTS=1:
 
     NPDV_LIVE_TESTS=1 python -m unittest discover -s tests -v
 
-They issue four POSTs to prod.nais.nasa.gov, all for Vermont or Outside U.S.,
+They issue six POSTs to prod.nais.nasa.gov, all for Vermont or Outside U.S.,
 NPDV's two smallest exports (Vermont returned 14 rows for FY2026). Everything
 asserted here held for all 795,393 committed rows, so a failure means NPDV's
 export changed rather than that the expectation was speculative.
@@ -62,10 +62,6 @@ class LiveExportTests(unittest.TestCase):
     def assert_rows_are_well_formed(self, year, target, rows):
         header = fetch_contracts.source_header_for_year(year)
         column = {name: 2 + index for index, name in enumerate(header)}
-        self.assertTrue(
-            rows, f"NPDV returned no FY{year} rows for {target.output_state}"
-        )
-
         for row in rows:
             self.assertEqual(2 + len(header), len(row), row)
             self.assertEqual(target.output_state, row[0])
@@ -89,11 +85,18 @@ class LiveExportTests(unittest.TestCase):
         rows = self.fetch(self.fiscal_year, self.vermont)
 
         self.assert_rows_are_well_formed(self.fiscal_year, self.vermont, rows)
-        self.assertEqual(17, len(rows[0]))
+
+    def test_previous_fiscal_year_export(self):
+        year = self.fiscal_year - 1
+        rows = self.fetch(year, self.vermont)
+
+        self.assertTrue(rows, f"NPDV returned no FY{year} Vermont rows")
+        self.assert_rows_are_well_formed(year, self.vermont, rows)
 
     def test_legacy_schema_export(self):
         rows = self.fetch(LEGACY_FISCAL_YEAR, self.vermont)
 
+        self.assertTrue(rows)
         self.assert_rows_are_well_formed(LEGACY_FISCAL_YEAR, self.vermont, rows)
         self.assertEqual(16, len(rows[0]))
 

@@ -380,6 +380,43 @@ class ResponseParsingTests(unittest.TestCase):
             fetch_contracts.Config(output_dir=self.output_dir.name)
         )
 
+    def test_zero_record_responses_may_omit_the_header(self):
+        # Actual FY2027 responses at the start of the fiscal year.
+        responses = {
+            "AK": (
+                "STATE OF ALASKA\nNASA Center: ALL \nFiscal Year: FY 27\n"
+                "Congressional District: ALL\nBusiness Category: ALL\n"
+                "0 Records found\n"
+            ),
+            "International": (
+                "\nOutside US\nNASA Center: ALL\nFiscal Year: FY27\r\n"
+                "0 Records found\n"
+            ),
+        }
+        for state, response in responses.items():
+            with self.subTest(state=state):
+                self.assertEqual(
+                    [], self.fetcher._parse_response(2027, TARGETS[state], response)
+                )
+
+    def test_zero_count_does_not_bypass_export_validation(self):
+        bad_header = list(fetch_contracts.MODERN_SOURCE_HEADER)
+        bad_header[11] = "Unexpected Column"
+        responses = (
+            "1 Records found\n",  # A nonempty export still needs its header.
+            "0 Records found\nUnexpected content\n",
+            make_export_response(bad_header, [], reported_count=0),
+            make_export_response(
+                fetch_contracts.MODERN_SOURCE_HEADER,
+                [modern_source_row()],
+                reported_count=0,
+            ),
+        )
+        for response in responses:
+            with self.subTest(response=response):
+                with self.assertRaises(fetch_contracts.DataValidationError):
+                    self.fetcher._parse_response(2027, TARGETS["AK"], response)
+
     def test_domestic_response_preserves_text_and_reorders_semantic_columns(self):
         source_row = modern_source_row()
         response_text = make_export_response(

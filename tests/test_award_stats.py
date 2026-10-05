@@ -11,6 +11,50 @@ import award_stats
 
 
 class AwardStatsTests(unittest.TestCase):
+    def test_export_writes_zero_statistics_when_there_are_no_new_awards(self):
+        for source_rows in (
+            [],  # A header-only CSV at the start of the fiscal year.
+            [
+                {
+                    "Award Date": "10/01/2026",
+                    "Obligations": "100",
+                    "Contract/Mod Number": "CONTRACT-1 Modification P00001",
+                    "Award Type": "Definitive Contract",
+                }
+            ],
+        ):
+            with self.subTest(source_rows=source_rows):
+                with tempfile.TemporaryDirectory() as data_dir_name:
+                    data_dir = Path(data_dir_name)
+                    with (data_dir / "nasa_awards_2027.csv").open(
+                        "w", newline="", encoding="utf-8"
+                    ) as csvfile:
+                        writer = csv.DictWriter(
+                            csvfile, fieldnames=award_stats.STATS_COLUMNS
+                        )
+                        writer.writeheader()
+                        writer.writerows(source_rows)
+
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        data = award_stats.process_fiscal_year(
+                            2027, data_dir, export=True
+                        )
+                    output = award_stats.create_combined_awards_csv(
+                        {2027: data}, [2027], data_dir / "stats.csv"
+                    )
+                    with output.open(newline="", encoding="utf-8") as csvfile:
+                        rows = list(csv.DictReader(csvfile))
+
+                self.assertEqual(
+                    award_stats.FISCAL_MONTHS + ["Total"],
+                    [row["Month"] for row in rows],
+                )
+                for row in rows:
+                    self.assertEqual(
+                        ["0"] * 4,
+                        [v for k, v in row.items() if k != "Month"],
+                    )
+
     def test_legacy_award_types_use_trailing_descriptor(self):
         with tempfile.TemporaryDirectory() as data_dir_name:
             csv_path = Path(data_dir_name) / "nasa_awards_2005.csv"

@@ -224,6 +224,10 @@ class NASADataFetcher:
                 )
             break
         else:
+            # NPDV omits the header when a query has no records. Only accept
+            # that form when the response ends after its explicit zero count.
+            if reported_count == 0 and not response_text[count_match.end():].strip():
+                return []
             raise DataValidationError(
                 f"Missing FY{year} export header for {target.output_state}"
             )

@@ -296,8 +296,6 @@ def get_awards_data_for_year(summary: Dict[str, pd.DataFrame]) -> Dict:
         Dictionary with monthly counts and values for contracts and grants
     """
     counts, values = summary["counts"], summary["values"]
-    if counts.empty:
-        return {}
 
     def cell(table: pd.DataFrame, category: str, month: str) -> int:
         return int(table.at[category, month]) if category in table.index else 0
@@ -418,6 +416,8 @@ def process_fiscal_year(year: int, data_dir: Path, export: bool = False) -> Dict
 
     if df_fy.empty:
         print(f"No contracts found for fiscal year {year}")
+        if export and df.empty:
+            return get_awards_data_for_year(summarize_new_awards(df_fy))
         return {}
 
     new_awards = df_fy[
